@@ -1,5 +1,5 @@
 import http from 'node:http';
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -12,7 +12,7 @@ let state={opportunities:[],signals:[],projects:[],runs:[],weights:defaults,mode
 await mkdir(data,{recursive:true});
 try{state={...state,...JSON.parse(await readFile(path.join(data,'state.json'),'utf8'))};}catch(e){if(e.code!=='ENOENT')throw e;}
 let writing=Promise.resolve();
-async function persist(){const snapshot=JSON.stringify(state,null,2);writing=writing.catch(()=>{}).then(()=>writeFile(path.join(data,'state.json'),snapshot));return writing;}
+async function persist(){const snapshot=JSON.stringify(state,null,2);writing=writing.catch(()=>{}).then(async()=>{const temporary=path.join(data,'state.json.tmp');await writeFile(temporary,snapshot);await rename(temporary,path.join(data,'state.json'));});return writing;}
 async function jsonFetch(url,options={}){const response=await fetch(url,{...options,signal:AbortSignal.timeout(options.timeout||15000)});if(!response.ok)throw new Error(`Source returned HTTP ${response.status}`);return response.json();}
 const themes=[
  {key:'security',title:'Cloud permission risk explorer',terms:/security|iam|permission|vulnerab|identity|attack|auth/i,problem:'Engineers need a clearer view of risky permissions and configuration changes.',users:'Cloud engineers and security teams',mvp:['Import a sample permission file','Visualize relationships and flag risky rules','Explain findings and export a report'],metrics:{career:94,problem:83,adoption:76,trend:50,learning:94,feasibility:70,gap:45,novelty:48}},
@@ -23,7 +23,7 @@ const themes=[
 export function cluster(signals){return themes.map(t=>({...t,evidence:signals.filter(s=>t.terms.test(s.title+' '+s.description))})).filter(t=>t.evidence.length).map(t=>({id:t.key,title:t.title,problem:t.problem,users:t.users,mvp:t.mvp,metrics:{...t.metrics,trend:Math.min(80,40+t.evidence.length*3)},evidence:t.evidence.slice(0,12),method:'Heuristic candidate',confidence:'Low — needs validation',critique:'Source interest does not prove unmet demand. Interview target users and compare existing products before committing.',stack:'Node.js, TypeScript, local AI; choose storage after validating the workflow.',saved:false,rejected:false}));}
 async function refresh(){const warnings=[];const gathered=[];const day=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
  await Promise.all([
- (async()=>{try{const ids=await jsonFetch('https://hacker-news.firebaseio.com/v0/topstories.json');const items=await Promise.allSettled(ids.slice(0,30).map(id=>jsonFetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)));for(const r of items)if(r.status==='fulfilled'&&r.value?.title){const s=r.value;gathered.push({id:`hn-${s.id}`,source:'Hacker News',title:s.title,url:`https://news.ycombinator.com/item?id=${s.id}`,description:'',engagement:s.score||0,collectedAt:new Date().toISOString()});}if(items.some(x=>x.status==='rejected'))warnings.push('Some Hacker News items were unavailable.');}catch(e){warnings.push('Hacker News: '+e.message);}})(),
+ (async()=>{try{const [topIds,askIds]=await Promise.all([jsonFetch('https://hacker-news.firebaseio.com/v0/topstories.json'),jsonFetch('https://hacker-news.firebaseio.com/v0/askstories.json')]);const ids=[...new Set([...askIds.slice(0,20),...topIds.slice(0,20)])];const items=await Promise.allSettled(ids.map(id=>jsonFetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)));for(const r of items)if(r.status==='fulfilled'&&r.value?.title){const s=r.value;gathered.push({id:`hn-${s.id}`,source:'Hacker News',title:s.title,url:`https://news.ycombinator.com/item?id=${s.id}`,description:'',engagement:s.score||0,collectedAt:new Date().toISOString()});}if(items.some(x=>x.status==='rejected'))warnings.push('Some Hacker News items were unavailable.');}catch(e){warnings.push('Hacker News: '+e.message);}})(),
  (async()=>{try{const result=await jsonFetch('https://api.github.com/search/repositories?q='+encodeURIComponent(`created:>${day} stars:>10 archived:false` )+'&sort=stars&order=desc&per_page=30',{headers:{'User-Agent':'ForgeRadar-local','Accept':'application/vnd.github+json'}});for(const s of result.items||[])gathered.push({id:`gh-${s.id}`,source:'GitHub',title:s.full_name,url:s.html_url,description:s.description||'',engagement:s.stargazers_count,collectedAt:new Date().toISOString()});}catch(e){warnings.push('GitHub: '+e.message);}})()
  ]);
  if(!gathered.length)throw new Error(warnings.join(' ')||'No signals returned. Existing results have been preserved.');
@@ -40,6 +40,7 @@ export function proposal(o){return `# ${o.title}\n\n${o.problem}\n\n## Target us
 let busy=false;
 const runtime=createOrchestrator({state,root,persist,refresh,models,jsonFetch,score,proposal});
 const server=http.createServer(async(req,res)=>{try{
+if(![`127.0.0.1:${process.env.PORT||4317}`,`localhost:${process.env.PORT||4317}`].includes(req.headers.host)){res.writeHead(403);res.end('Unknown local host');return;}
 const url=new URL(req.url,'http://localhost');
 const send=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(obj));};
 if(req.method==='GET'&&url.pathname==='/api/machine')return send(200,runtime.status());
