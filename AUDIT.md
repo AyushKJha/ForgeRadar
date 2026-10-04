@@ -19,3 +19,11 @@ The public dashboard uses Render's free web service. It cannot run the GPU model
 - Novelty and demand scores require real user validation.
 - Syntax/scope QA is not behavioral QA; generated applications require acceptance review.
 - No claim of continuous execution while the laptop is off.
+
+## Additional prompt and deployment fixes
+- New discoveries stop at a proposal; code and repository creation require an explicit owner build instruction.
+- Conversation history and shortcuts are available without navigating between pages.
+- Status replies use actual engine configuration rather than model-generated claims.
+- Sign-in uses a tested JSON session response, secure owner cookie and visible errors.
+- Idle telemetry no longer resets ranking or source-import forms every few seconds.
+- Authenticated live integration checks verify the public prompt composer, worker connection and a completed status instruction.

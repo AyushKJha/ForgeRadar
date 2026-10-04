@@ -9,7 +9,7 @@ async function api(endpoint,method='GET',body){const r=await fetch('https://api.
 const me=await api('/user');const name='ForgeRadar';let repo;
 try{repo=await api(`/repos/${me.login}/${name}`);}catch(e){if(e.status!==404)throw e;repo=await api('/user/repos','POST',{name,private:true,auto_init:true,description:'Local multi-agent opportunity discovery, evaluation, proposal, build and GitHub synchronization console.'});}
 if(!repo.private||repo.owner.login!==me.login)throw new Error('Expected a private repository owned by the authenticated account');
-const allowed=['.gitignore','README.md','package.json','server.mjs','orchestrator.mjs','social-sources.mjs','competition.mjs','tests.mjs','daily.mjs','platform-sync.mjs','start.ps1','remote.mjs','remote-tests.mjs','bridge.mjs','render.yaml','AUDIT.md','.env.example'];const files=[];
+const allowed=['.gitignore','README.md','package.json','server.mjs','orchestrator.mjs','social-sources.mjs','competition.mjs','tests.mjs','daily.mjs','platform-sync.mjs','start.ps1','remote.mjs','remote-tests.mjs','smoke.mjs','bridge.mjs','render.yaml','AUDIT.md','.env.example'];const files=[];
 for(const filename of allowed)try{files.push({path:filename,content:await readFile(path.join(root,filename),'utf8')});}catch(e){if(e.code!=='ENOENT')throw e;}
 for(const item of await readdir(path.join(root,'public'),{withFileTypes:true}))if(item.isFile()&&/\.(html|css|js)$/.test(item.name))files.push({path:'public/'+item.name,content:await readFile(path.join(root,'public',item.name),'utf8')});
 for(const file of files)if(/(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]{20,}|sk-proj-[A-Za-z0-9_-]{20,}/.test(file.content))throw new Error('Secret-like string detected in source; publication stopped');
