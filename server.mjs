@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {createOrchestrator} from './orchestrator.mjs';
+import {isolatedPreview} from './preview.mjs';
 export const defaults={career:25,problem:20,adoption:15,trend:10,learning:10,feasibility:10,gap:5,novelty:5};
 export function score(metrics,weights=defaults){const total=Object.values(weights).reduce((a,b)=>a+b,0);return total?Math.round(Object.keys(defaults).reduce((a,k)=>a+(metrics[k]||0)*(weights[k]||0),0)/total):0;}
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -46,7 +47,7 @@ const send=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json','C
 if(req.method==='GET'&&url.pathname==='/api/machine')return send(200,runtime.status());
 if(req.method==='GET'&&url.pathname==='/api/github')return send(200,await runtime.githubHealth());
 if(req.method==='GET'&&url.pathname==='/api/events'){res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});runtime.subscribe(res);return;}
-if(req.method==='GET'&&url.pathname.startsWith('/preview/')){const parts=url.pathname.split('/');if(parts.length!==4||!/^[-a-f0-9]{36}$/.test(parts[2])||!['index.html','style.css','app.js'].includes(parts[3]))return send(404,{error:'Unknown preview asset'});const p=state.projects.find(p=>p.id===parts[2]&&p.preview);if(!p)return send(404,{error:'Prototype not found'});res.writeHead(200,{'Content-Type':parts[3]==='index.html'?'text/html; charset=utf-8':parts[3]==='style.css'?'text/css':'text/javascript','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; sandbox allow-scripts; frame-ancestors 'self'",'X-Content-Type-Options':'nosniff'});res.end(await readFile(path.join(root,'projects',p.id,parts[3])));return;}
+if(req.method==='GET'&&url.pathname.startsWith('/preview/')){const parts=url.pathname.split('/');if(parts.length!==4||!/^[-a-f0-9]{36}$/.test(parts[2])||!['index.html','style.css','app.js'].includes(parts[3]))return send(404,{error:'Unknown preview asset'});const p=state.projects.find(p=>p.id===parts[2]&&p.preview);if(!p)return send(404,{error:'Prototype not found'});res.writeHead(200,{'Content-Type':parts[3]==='index.html'?'text/html; charset=utf-8':parts[3]==='style.css'?'text/css':'text/javascript','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; sandbox allow-scripts; frame-ancestors 'self'",'X-Content-Type-Options':'nosniff'});if(parts[3]==='index.html'){const files={};for(const f of ['index.html','style.css','app.js'])files[f]=await readFile(path.join(root,'projects',p.id,f),'utf8');const preview=isolatedPreview(files);res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':preview.csp,'X-Content-Type-Options':'nosniff'});res.end(preview.html);}else res.end(await readFile(path.join(root,'projects',p.id,parts[3])));return;}
 if(req.method==='GET'&&url.pathname==='/api/state')return send(200,{...state,busy});
 if(req.method==='GET'&&url.pathname==='/api/models')return send(200,await models());
 if(req.method==='POST'){
