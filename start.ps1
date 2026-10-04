@@ -40,7 +40,7 @@ for ($taskWait=0; $taskWait -lt 45; $taskWait++) {
     } catch { Start-Sleep -Seconds 1 }
 }
 $taskDeploymentFile=Join-Path $taskLogDir 'deployment.json'
-if (Test-Path -LiteralPath $taskDeploymentFile) {
+if ((Test-Path -LiteralPath $taskDeploymentFile) -and (Get-Content -LiteralPath $taskDeploymentFile -Raw|ConvertFrom-Json).url) {
     $taskBridgeRunning=$false
     $taskBridgePidFile=Join-Path $taskLogDir 'bridge.pid'
     if (Test-Path -LiteralPath $taskBridgePidFile) {
