@@ -79,3 +79,7 @@ State is stored in `data/state.json`; project artifacts are under `projects/<id>
 ## New ideas are first-class projects
 Community requests for software that has not been built enter the same discovery, evaluation, proposal and build pipeline as existing-project improvements. Every candidate records its origin and whether the work creates a new project or improves an existing one. Public discussion is evidence of an idea, not proof of demand or originality. The critic checks available competing solutions before ranking; feasible candidates can proceed to their own private repository.
 
+
+## Public dashboard
+The Render service runs remote.mjs with a strong owner password and a separate worker token. Launch start.ps1 on this laptop to start bridge.mjs. The bridge makes outbound HTTPS requests; no router ports or GitHub credentials are exposed. Cloud state is a temporary cache of the laptop's persistent state. Public URLs require owner login before any project data or commands are available. The free dashboard does not provide always-on cloud GPU execution.
+

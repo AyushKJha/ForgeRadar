@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: forgeradar
+    runtime: node
+    plan: free
+    buildCommand: node --check remote.mjs
+    startCommand: node remote.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: FORGERADAR_BRIDGE_TOKEN
+        sync: false
+      - key: FORGERADAR_ADMIN_PASSWORD
+        sync: false

@@ -32,4 +32,25 @@ if (-not $taskEngineReady) {
     $taskEngineProcess = Start-Process -FilePath $taskNodeExe -ArgumentList @('"' + $taskServerFile + '"') -WorkingDirectory $taskProjectDir -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $taskLogDir 'engine.log') -RedirectStandardError (Join-Path $taskLogDir 'engine-error.log')
     $taskEngineProcess.Id | Set-Content -LiteralPath (Join-Path $taskLogDir 'engine.pid')
 }
+for ($taskWait=0; $taskWait -lt 45; $taskWait++) {
+    try {
+        $null=Invoke-RestMethod 'http://127.0.0.1:4317/api/machine' -TimeoutSec 2
+        if (-not $NoModel) { $null=Invoke-RestMethod 'http://127.0.0.1:11434/api/tags' -TimeoutSec 2 }
+        break
+    } catch { Start-Sleep -Seconds 1 }
+}
+$taskDeploymentFile=Join-Path $taskLogDir 'deployment.json'
+if (Test-Path -LiteralPath $taskDeploymentFile) {
+    $taskBridgeRunning=$false
+    $taskBridgePidFile=Join-Path $taskLogDir 'bridge.pid'
+    if (Test-Path -LiteralPath $taskBridgePidFile) {
+        $taskBridgePid=[int](Get-Content -LiteralPath $taskBridgePidFile)
+        $taskBridgeProcess=Get-CimInstance Win32_Process -Filter "ProcessId = $taskBridgePid" -ErrorAction SilentlyContinue
+        $taskBridgeRunning=$taskBridgeProcess -and $taskBridgeProcess.CommandLine.Contains((Join-Path $taskProjectDir 'bridge.mjs'))
+    }
+    if (-not $taskBridgeRunning) {
+        $taskBridge=Start-Process -FilePath (Get-Command node).Source -ArgumentList @('"'+(Join-Path $taskProjectDir 'bridge.mjs')+'"') -WorkingDirectory $taskProjectDir -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $taskLogDir 'bridge.log') -RedirectStandardError (Join-Path $taskLogDir 'bridge-error.log')
+        $taskBridge.Id | Set-Content -LiteralPath $taskBridgePidFile
+    }
+}
 Write-Output 'ForgeRadar local services launched. Open http://127.0.0.1:4317.'

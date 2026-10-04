@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {score,cluster,proposal,defaults} from './server.mjs';
-import {createOrchestrator,validateMetrics,validateFiles,dailySlot} from './orchestrator.mjs';
+import {createOrchestrator,validateMetrics,validateFiles,dailySlot,scopeError} from './orchestrator.mjs';
 import {balancedEvidence,parseRedditFeed,classifySignal} from './social-sources.mjs';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import os from 'node:os';
@@ -27,3 +27,5 @@ test('roles hand off validated artifacts and publish only after QA',async()=>{co
 test('an offline model stops the miner and never calls builder or sync',async()=>{const f=await fixture(false);try{await f.runtime.start('discover');assert.equal(f.state.machine.status,'blocked');assert.equal(f.state.agentStates.scout.status,'complete');assert.equal(f.state.agentStates.miner.status,'blocked');assert.equal(f.state.agentStates.builder.status,'idle');assert.equal(f.synchronized,0);assert.equal(f.state.projects.length,0);}finally{await f.clean();}});
 
 test('unbuilt community ideas are retained ahead of generic discussion',()=>{const idea={id:'idea',source:'Reddit',title:'An idea for a tool that does not exist yet'};assert.equal(classifySignal(idea),'Idea request');assert.equal(balancedEvidence([{id:'discussion',source:'Reddit',title:'Launch news'},idea],1)[0].id,'idea');});
+
+test('scope gate distinguishes restrictions from integration requirements',()=>{assert.equal(scopeError(['No API calls; without localStorage']),null);assert.match(scopeError(['Integrate with a live API']),/Unsupported/);assert.match(scopeError(['Use localStorage persistence']),/Unsupported/);});
