@@ -83,3 +83,16 @@ Community requests for software that has not been built enter the same discovery
 ## Public dashboard
 The Render service runs remote.mjs with a strong owner password and a separate worker token. Launch start.ps1 on this laptop to start bridge.mjs. The bridge makes outbound HTTPS requests; no router ports or GitHub credentials are exposed. Cloud state is a temporary cache of the laptop's persistent state. Public URLs require owner login before any project data or commands are available. The free dashboard does not provide always-on cloud GPU execution.
 
+
+## Prompt-first workflow
+Use the always-visible workshop composer to describe a new idea, request community discovery, ask about progress, pause/resume automation or sync completed work. New ideas produce a proposal and wait. Type `Approve and build <proposal title>` or click **Approve & build** to authorize implementation. Each approved, completed project receives its own private repository with README, proposal, architecture, tasks and QA report. Daily iterations apply only to approved projects.
+
+Example prompts:
+- Propose an offline tool that organizes my reading list by topic.
+- Find useful unbuilt ideas from communities and propose the strongest one.
+- Approve and build Reading Queue.
+- Improve Reading Queue by adding a topic filter.
+- Sync completed approved projects to GitHub.
+- Pause automation.
+
+The assistant uses the local model to select from bounded actions. It does not have Codex's unrestricted terminal, package installation, arbitrary repository editing or cloud GPU capabilities.

@@ -13,7 +13,7 @@ await mkdir(data,{recursive:true});
 try{state={...state,...JSON.parse(await readFile(path.join(data,'state.json'),'utf8'))};}catch(e){if(e.code!=='ENOENT')throw e;}
 let writing=Promise.resolve();
 async function persist(){const snapshot=JSON.stringify(state,null,2);writing=writing.catch(()=>{}).then(async()=>{const temporary=path.join(data,'state.json.tmp');await writeFile(temporary,snapshot);await rename(temporary,path.join(data,'state.json'));});return writing;}
-async function jsonFetch(url,options={}){const response=await fetch(url,{...options,signal:AbortSignal.timeout(options.timeout||15000)});if(!response.ok)throw new Error(`Source returned HTTP ${response.status}`);return response.json();}
+async function jsonFetch(url,options={}){const response=await fetch(url,{...options,signal:options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(options.timeout||15000)]):AbortSignal.timeout(options.timeout||15000)});if(!response.ok)throw new Error(`Source returned HTTP ${response.status}`);return response.json();}
 const themes=[
  {key:'security',title:'Cloud permission risk explorer',terms:/security|iam|permission|vulnerab|identity|attack|auth/i,problem:'Engineers need a clearer view of risky permissions and configuration changes.',users:'Cloud engineers and security teams',mvp:['Import a sample permission file','Visualize relationships and flag risky rules','Explain findings and export a report'],metrics:{career:94,problem:83,adoption:76,trend:50,learning:94,feasibility:70,gap:45,novelty:48}},
  {key:'ai',title:'Local AI evaluation workbench',terms:/\bai\b|llm|model|agent|inference|token|eval/i,problem:'Developers need repeatable comparisons of model quality, latency and cost.',users:'Developers building AI applications',mvp:['Import a small evaluation dataset','Run comparisons against local models','Compare quality and latency in a report'],metrics:{career:90,problem:79,adoption:82,trend:50,learning:91,feasibility:83,gap:42,novelty:44}},
@@ -52,6 +52,8 @@ if(req.method==='GET'&&url.pathname==='/api/models')return send(200,await models
 if(req.method==='POST'){
  if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
 let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>32000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
+if(url.pathname==='/api/cancel')return send(200,runtime.cancel());
+if(url.pathname==='/api/chat'){if(typeof body.text!=='string'||!body.text.trim()||body.text.length>8000)return send(400,{error:'Enter an instruction up to 8,000 characters'});if(busy||runtime.active())return send(409,{error:'A mission is running. Follow its progress before sending the next instruction.'});return send(202,runtime.launch('prompt',body.text));}
 if(url.pathname==='/api/mission'){if(busy||runtime.active())return send(409,{error:'An agent mission is already running'});if(!['discover','build','sync','daily'].includes(body.kind))return send(400,{error:'Unknown mission'});return send(202,runtime.launch(body.kind,body.id));}
 if(url.pathname==='/api/automation')return send(200,await runtime.configure(body));
 if(runtime.active())return send(409,{error:'An agent mission is running; wait until its current handoff completes'});
