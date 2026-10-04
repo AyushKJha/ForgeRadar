@@ -53,7 +53,7 @@ Generated projects use separate private repositories. Only the explicit code/doc
 
 ## Automation
 
-Enable automation in System to collect every six hours while the local engine is running. Daily work at **21:00 Asia/Kolkata** improves an existing prototype and syncs completed work. A failed daily attempt is not repeatedly retried every 30 seconds.
+Enable automation in System to collect every six hours while the local engine is running. Daily synchronization at **21:00 Asia/Kolkata** pushes completed approved work. This deployment keeps automatic code iterations off; request changes through the prompt bar. New ideas always await approval. A failed daily attempt is not repeatedly retried every 30 seconds.
 
 `node daily.mjs` is the scheduled daily entry point. It starts the local services when needed and respects the dashboard pause setting. A Codex heartbeat can invoke it when this computer and Codex are available; it cannot execute while the computer is off. Source publication is separately available through platform-sync.mjs.
 

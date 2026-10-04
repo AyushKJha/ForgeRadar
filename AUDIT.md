@@ -27,3 +27,8 @@ The public dashboard uses Render's free web service. It cannot run the GPU model
 - Sign-in uses a tested JSON session response, secure owner cookie and visible errors.
 - Idle telemetry no longer resets ranking or source-import forms every few seconds.
 - Authenticated live integration checks verify the public prompt composer, worker connection and a completed status instruction.
+
+## Browser acceptance results
+The final hosted login succeeded in Chrome. A progress prompt sent through the visible composer completed on the local worker. The isolated prototype rendered and category filtering, case-insensitive search, pasted CSV with quoted commas and invalid-price validation passed. File-picker automation was unavailable because extension file access was disabled; it is not claimed as tested. The requested viewport override did not change this Chrome session's effective dimensions, so mobile browser verification remains unconfirmed. Responsive CSS and reduced-motion handling are included.
+
+Owner sessions are signed and expire after twelve hours, remaining valid through normal redeployments with unchanged secrets. Automated discovery is enabled every six hours and proposes work for approval. Daily sync is enabled at 9 PM India time. Automatic code regeneration is disabled; approved projects can receive requested changes through the composer. A Codex heartbeat is configured to run the daily entry point when this laptop and Codex are available.
