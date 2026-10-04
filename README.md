@@ -75,3 +75,7 @@ State is stored in `data/state.json`; project artifacts are under `projects/<id>
 - https://docs.github.com/en/rest/search/search
 - https://docs.github.com/en/rest/git
 - https://docs.x.com/x-api/posts/search-recent-posts
+
+## New ideas are first-class projects
+Community requests for software that has not been built enter the same discovery, evaluation, proposal and build pipeline as existing-project improvements. Every candidate records its origin and whether the work creates a new project or improves an existing one. Public discussion is evidence of an idea, not proof of demand or originality. The critic checks available competing solutions before ranking; feasible candidates can proceed to their own private repository.
+

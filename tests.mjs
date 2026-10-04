@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {score,cluster,proposal,defaults} from './server.mjs';
 import {createOrchestrator,validateMetrics,validateFiles,dailySlot} from './orchestrator.mjs';
-import {balancedEvidence,parseRedditFeed} from './social-sources.mjs';
+import {balancedEvidence,parseRedditFeed,classifySignal} from './social-sources.mjs';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,9 +19,11 @@ if(role==='evaluator')output={metrics:Object.fromEntries(Object.keys(defaults).m
 if(role==='critic')output={critique:'Interview users; existing tools may already meet this need.',gapScore:60,noveltyScore:60};
 if(role==='proposal')output={title:'CSV lab',summary:'Validate CSV locally',whyBest:'Best weighted candidate in this run',users:'Data engineers',mvp:['Validate CSV'],successCriteria:['A malformed row is identified'],risks:['Limited demand']};
 if(role==='architect')output={name:'CSV lab prototype',summary:'Offline browser tool',tasks:['Build input','Show validation'],acceptance:['Invalid CSV reports a problem']};
-if(role==='builder')output={summary:'Offline prototype generated',files:[{path:'index.html',content:'<!doctype html><html lang="en"><head><link rel="stylesheet" href="style.css"></head><body><button id="run">Validate</button><script src="app.js"></script></body></html>'},{path:'style.css',content:'body{font-family:sans-serif}'},{path:'app.js',content:'document.querySelector("#run").addEventListener("click",()=>{});'}]};
+if(role==='builder')output={summary:'Offline prototype generated',htmlBody:'<button id="run">Validate</button>',css:'body{font-family:sans-serif}',javascript:'document.querySelector("#run").addEventListener("click",()=>{});'};
 return {message:{content:JSON.stringify(output)},prompt_eval_count:1,eval_count:1};};
 const runtime=createOrchestrator({state,root:temp,persist:async()=>{},refresh:async()=>({warnings:[]}),models:async()=>({connected:modelAvailable,models:modelAvailable?['test']:[]}),jsonFetch,score,proposal,collectSocial:async()=>({signals:[],sources:[]}),synchronize:async p=>{synchronized++;return {projectId:p.id,status:'test sync'};}});
 return {runtime,state,temp,get synchronized(){return synchronized;},async clean(){runtime.stop();const target=path.resolve(temp);if(!target.startsWith(path.resolve(os.tmpdir())+path.sep)||!path.basename(target).startsWith('forgeradar-test-'))throw new Error('Unsafe test cleanup');await rm(target,{recursive:true,force:true});}};}
 test('roles hand off validated artifacts and publish only after QA',async()=>{const f=await fixture();try{await f.runtime.start('discover');assert.equal(f.state.machine.status,'complete');assert.equal(f.synchronized,1);assert.deepEqual(f.state.handoffs.map(h=>h.from).reverse(),['scout','miner','evaluator','critic','proposal','architect','builder','qa']);assert.equal(f.state.agentStates.qa.output.syntax,'Passed');assert.equal(f.state.projects[0].iterations,1);assert.match(await readFile(path.join(f.temp,'projects',f.state.projects[0].id,'README.md'),'utf8'),/offline browser prototype/);}finally{await f.clean();}});
 test('an offline model stops the miner and never calls builder or sync',async()=>{const f=await fixture(false);try{await f.runtime.start('discover');assert.equal(f.state.machine.status,'blocked');assert.equal(f.state.agentStates.scout.status,'complete');assert.equal(f.state.agentStates.miner.status,'blocked');assert.equal(f.state.agentStates.builder.status,'idle');assert.equal(f.synchronized,0);assert.equal(f.state.projects.length,0);}finally{await f.clean();}});
+
+test('unbuilt community ideas are retained ahead of generic discussion',()=>{const idea={id:'idea',source:'Reddit',title:'An idea for a tool that does not exist yet'};assert.equal(classifySignal(idea),'Idea request');assert.equal(balancedEvidence([{id:'discussion',source:'Reddit',title:'Launch news'},idea],1)[0].id,'idea');});
