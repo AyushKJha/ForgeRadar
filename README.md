@@ -1,6 +1,6 @@
 # ForgeRadar
 
-A local agent system for discovering software ideas, evaluating who would use them, proposing the strongest project, building a browser prototype and syncing it to a separate private GitHub repository.
+A local agent system for discovering software ideas, evaluating who would use them, proposing projects, building offline prototypes or persistent Node + SQLite applications, and syncing each approved project to its own private GitHub repository.
 
 Discovery includes **unbuilt community ideas**, unmet needs and improvements to existing tools. A popular existing repository is context, not automatic proof that copying it would be worthwhile. Novelty remains unverified until researched, and a limited search cannot prove that no product exists.
 
@@ -15,18 +15,20 @@ Each role has separate instructions, validated outputs and explicit handoffs. Ro
 - **Evaluator:** estimates merit, audience fit, career value, feasibility and adoption potential.
 - **Critic:** searches GitHub and Hacker News for existing-solution signals, questions demand and revises competition/novelty estimates.
 - **Proposal:** writes a short proposal and explains the choice relative to alternatives.
-- **Architect:** defines one bounded prototype and acceptance checks.
-- **Builder:** generates HTML, CSS and JavaScript files in a project workspace.
-- **QA:** checks JavaScript syntax and offline scope before publication. Behavioral checks still require browser review.
+- **Architect:** defines supported application scope and acceptance checks.
+- **Builder:** generates offline interfaces, or a validated data model compiled into a reviewed Node + SQLite backend and accessible browser interface.
+- **QA:** checks syntax and offline scope for prototypes. Persistent applications also run database CRUD, input-validation and restart-persistence acceptance tests before publication. Domain workflows still require owner review.
 - **GitHub Sync:** creates a private repository per generated project and commits each changed snapshot atomically, without force-pushing.
 
 ## Run locally
 
-Requires Node.js 22+ and Git. No npm packages are required.
+Requires Node.js 24+ and Git. No npm packages are required.
 
 On Windows, run `./start.ps1` in PowerShell. It launches the engine in the background and starts an available Ollama runtime. Open http://127.0.0.1:4317.
 
 Alternatively, start Ollama separately and run `node server.mjs`.
+
+Run `./install-worker.ps1` once on Windows to install the current-user startup shortcut and recovery supervisor. It starts at Windows sign-in and checks the engine, model and bridge every 30 seconds. Remove **ForgeRadar Worker.lnk** from your Startup folder to disable automatic startup. This installation uses no administrator privilege and does not run while Windows is off.
 
 For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded under `../../work/ollama`. The launcher also supports an Ollama installation on PATH. On another machine, install Ollama from https://ollama.com/download and download an appropriate local model. This laptop has 16 GB system RAM and an RTX 4060 with 8 GB GPU memory; inference is sequential to limit resource usage.
 
@@ -38,6 +40,8 @@ For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded und
 | Reddit | Public RSS for SomebodyMakeThis, AppIdeas and SideProject, with a one-hour cache; rate-limit errors are visible |
 | Stack Overflow | Public questions API |
 | GitHub | Recent repository activity and existing-solution searches |
+| Mastodon | Public appideas, software and opensource hashtag timelines, where the instance permits public access |
+| Bluesky | Public search adapter; HTTP access errors are visible. A connected state is shown only after real results are returned. |
 | X / Twitter | Optional recent-search API adapter; disabled by default. Requires X_BEARER_TOKEN and explicit FORGERADAR_X_ENABLED=1. Platform access may have costs. |
 | Instagram | Public post/caption imports; automated Instagram discovery is not connected |
 
@@ -59,9 +63,11 @@ Enable automation in System to collect every six hours while the local engine is
 
 ## Validation and limits
 
-Run `node --test tests.mjs`. Tests cover scoring, source parsing, fair evidence sampling, India-time scheduling, role ordering, artifact validation and stopping when a model is unavailable. The orchestration tests use model fixtures; a live model mission is a separate integration check.
+Run `npm test`. Tests cover scoring, social parsing, evidence sampling, scheduling, role ordering, artifact validation, durable SQLite CRUD, idempotency, app compilation, full-stack pipeline, authenticated relay delivery and stopping when a model is unavailable. The orchestration tests use model fixtures; a live model mission is a separate integration check.
 
-The builder currently produces **offline browser prototypes**, not production backend services. It does not run model-generated shell commands or install packages. Generated previews are sandboxed and network-disabled. QA validates syntax and scope; that does not establish correct behavior, product demand or security certification.
+The builder supports two modes. **Offline prototype** generates custom HTML/CSS/JavaScript, sandboxed with network access disabled. **Persistent application** generates a typed data model for a reviewed Node + SQLite runtime: create/edit/delete records, search, CSV/JSON import, JSON export and persistence. Full-stack apps run through the owner dashboard and can run independently from their source repository using `npm start`. Generated app data and databases are excluded from GitHub. The model never executes arbitrary shell commands or installs packages.
+
+The persistent mode is a single-owner data application builder, not an unrestricted coding environment: custom backends, payments, third-party APIs and multi-user roles remain outside its supported scope. Database acceptance tests do not establish correct domain behavior, product demand or security certification.
 
 Scores are estimates. There is no measured historical trend model, comprehensive market research, Instagram crawler or claim to detect every idea on the internet. The service is single-user and binds to loopback; do not expose it to a network without authentication and further hardening.
 
@@ -85,7 +91,9 @@ The Render service runs remote.mjs with a strong owner password and a separate w
 
 
 ## Prompt-first workflow
-Use the always-visible workshop composer to describe a new idea, request community discovery, ask about progress, pause/resume automation or sync completed work. New ideas produce a proposal and wait. Type `Approve and build <proposal title>` or click **Approve & build** to authorize implementation. Each approved, completed project receives its own private repository with README, proposal, architecture, tasks and QA report. Daily iterations apply only to approved projects.
+Use the always-visible workshop composer to describe a new idea, request discovery, ask about progress, pause/resume automation or sync completed work. New ideas produce a proposal and wait. Type `Approve and build <proposal title>` or select the build mode and click **Approve & build**. Every approved completed project receives its own private repository with README, runnable source, proposal, architecture, tasks and QA report.
+
+Instructions are first saved in this browser's persistent outbox. Keep or reopen this browser after the laptop reconnects to deliver them. The outbox survives page reloads and a cloud service restart; it does not synchronize between devices, and clearing browser storage removes unsent instructions. Worker receipts prevent retransmission from running an accepted instruction twice. Interrupted jobs show their saved state and can be retried after reviewing artifacts. The cloud service has an ephemeral cache, not a durable hosted database. It cannot process jobs while the laptop is off.
 
 Example prompts:
 - Propose an offline tool that organizes my reading list by topic.
