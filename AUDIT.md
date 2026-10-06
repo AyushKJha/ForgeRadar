@@ -15,7 +15,7 @@ The public dashboard uses Render's free web service. It cannot run the GPU model
 
 ## Still limited
 - Instagram is caption import, not automated crawling. X requires authorized API access.
-- Builder scope is offline browser prototypes, not arbitrary production backend applications.
+- Builder supports offline prototypes and persistent single-owner Node + SQLite data apps. Arbitrary server code, payments, external integrations and multi-user systems are not supported.
 - Novelty and demand scores require real user validation.
 - Syntax/scope QA is not behavioral QA; generated applications require acceptance review.
 - No claim of continuous execution while the laptop is off.
@@ -32,3 +32,12 @@ The public dashboard uses Render's free web service. It cannot run the GPU model
 The final hosted login succeeded in Chrome. A progress prompt sent through the visible composer completed on the local worker. The isolated prototype rendered and category filtering, case-insensitive search, pasted CSV with quoted commas and invalid-price validation passed. File-picker automation was unavailable because extension file access was disabled; it is not claimed as tested. The requested viewport override did not change this Chrome session's effective dimensions, so mobile browser verification remains unconfirmed. Responsive CSS and reduced-motion handling are included.
 
 Owner sessions are signed and expire after twelve hours, remaining valid through normal redeployments with unchanged secrets. Automated discovery is enabled every six hours and proposes work for approval. Daily sync is enabled at 9 PM India time. Automatic code regeneration is disabled; approved projects can receive requested changes through the composer. A Codex heartbeat is configured to run the daily entry point when this laptop and Codex are available.
+
+## Persistent application upgrade — 2026-10-05
+Full-stack mode compiles a validated data model into a reviewed Node + SQLite service, with persistent CRUD, typed forms, search, CSV/JSON import and JSON export. Database records and secrets are excluded from GitHub. Compiler QA executes CRUD, validation, repeated-request and restart-persistence acceptance tests. A live Ollama build of the already-approved wishlist project completed and was synced to its existing private repository. First-pass model fields can fail validation; bounded repair retries expose the failure rather than publishing invalid code.
+
+The prompt composer now saves instructions in this browser before transmission. Durable local worker receipts suppress duplicate execution. Cloud restart recovery resends browser-saved IDs; unfinished accepted worker jobs are reported as interrupted and can be retried. This is browser-local durability, not a cross-device hosted queue. Clearing browser storage removes unsent instructions. A current-user Windows Startup shortcut launches the worker supervisor, which checks model, engine and bridge every 30 seconds. It cannot execute while the laptop is off.
+
+Mastodon public hashtag collection returned 24 posts in a live check, and Reddit RSS returned 15. Bluesky public search returned HTTP 403 and is shown as unavailable; no bypass is attempted. X requires authorized API access and Instagram remains caption import. Neither is presented as an active automatic connection.
+
+A real Chrome viewport override at 390 by 844 exposed summary-counter horizontal overflow. The mobile summary was changed to two columns with wrapped values. Full-stack preview forms need allow-forms in their reviewed-runtime iframe; offline model-generated prototypes retain their stricter sandbox. Application relay requests remain owner-authenticated, origin-checked and restricted to reviewed database operations.

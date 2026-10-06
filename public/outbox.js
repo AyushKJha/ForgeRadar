@@ -1,6 +1,6 @@
 const key='forgeradar-outbox-v1';
-export function readOutbox(){try{return JSON.parse(localStorage.getItem(key)||'[]');}catch{return [];}}
-function save(items){localStorage.setItem(key,JSON.stringify(items));window.dispatchEvent(new Event('forge-outbox'));}
+export function readOutbox(){try{const data=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(data)?data.filter(x=>x&&typeof x.id==='string'&&typeof x.text==='string'&&x.text.length<=8000):[];}catch{return [];}}
+function save(items){const pending=items.filter(x=>x.status!=='complete'),completed=items.filter(x=>x.status==='complete').slice(-100);localStorage.setItem(key,JSON.stringify([...completed,...pending]));window.dispatchEvent(new Event('forge-outbox'));}
 export function queueInstruction(text){const items=readOutbox();if(items.filter(x=>x.status!=='complete').length>=50)throw new Error('Your queue holds 50 instructions. Finish or remove some first.');const item={id:crypto.randomUUID(),text,createdAt:new Date().toISOString(),status:'queued'};save([...items,item]);return item;}
 export function discardInstruction(id){save(readOutbox().filter(x=>x.id!==id));}
 let sending=false;
