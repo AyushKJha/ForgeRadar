@@ -41,3 +41,8 @@ The prompt composer now saves instructions in this browser before transmission. 
 Mastodon public hashtag collection returned 24 posts in a live check, and Reddit RSS returned 15. Bluesky public search returned HTTP 403 and is shown as unavailable; no bypass is attempted. X requires authorized API access and Instagram remains caption import. Neither is presented as an active automatic connection.
 
 A real Chrome viewport override at 390 by 844 exposed summary-counter horizontal overflow. The mobile summary was changed to two columns with wrapped values. Full-stack preview forms need allow-forms in their reviewed-runtime iframe; offline model-generated prototypes retain their stricter sandbox. Application relay requests remain owner-authenticated, origin-checked and restricted to reviewed database operations.
+
+## Hosted acceptance — 2026-10-06
+All 20 automated checks passed with loopback HTTP access enabled. The authenticated live smoke check confirmed owner sign-in, blocked unauthenticated state access, connected worker and a completed remote status prompt. Chrome verified the deployed reviewed iframe permits forms and saves a record into SQLite. Earlier pasted CSV import retained its two imported records across the next day's session. At a real 390 x 844 viewport the dashboard had no horizontal overflow.
+
+The laptop bridge and supervisor were temporarily stopped. A status instruction was saved, survived browser reload, and completed after restoring the supervisor. The updated approved application's runtime was synced to its own private repository. Browser-local queue limitations and supported data-app scope still apply; this does not claim arbitrary autonomous software development or off-laptop execution.
