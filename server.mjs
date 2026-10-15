@@ -12,7 +12,7 @@ import {openApp} from './app-kit.mjs';
 import {validateProfile,domains} from './v3-profile.mjs';
 import {previewResume} from './resume-parser.mjs';
 import {previewGithubPortfolio} from './portfolio-import.mjs';
-import {recommend} from './v3-discovery.mjs';
+import {recommend,relatedWork} from './v3-discovery.mjs';
 export const defaults={career:25,problem:20,adoption:15,trend:10,learning:10,feasibility:10,gap:5,novelty:5};
 export function score(metrics,weights=defaults){const total=Object.values(weights).reduce((a,b)=>a+b,0);return total?Math.round(Object.keys(defaults).reduce((a,k)=>a+(metrics[k]||0)*(weights[k]||0),0)/total):0;}
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -81,6 +81,14 @@ if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie','forge_local=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
 if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{user:account,profile:jobStore.loadProfile(account.id)});}
+if(url.pathname==='/api/account/appearance'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.method==='GET')return send(200,jobStore.appearance(account.id));
+ if(req.method!=='POST')return send(405,{error:'Method not allowed'});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>300)return send(413,{error:'Settings too large'});}const body=JSON.parse(raw||'{}');
+ return send(200,jobStore.saveAppearance(account.id,body.theme,body.reducedMotion));
+}
 if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
  if(!account)return send(401,{error:'Sign in first'});
  const profile=jobStore.loadProfile(account.id)?.profile;
@@ -89,6 +97,14 @@ if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
  const feedback=new Map(jobStore.listFeedback(account.id).map(item=>[item.canonicalUrl,item]));
  const items=recommend(state.research.records,profile,{mode,adjacent}).filter(item=>url.searchParams.get('showDismissed')==='true'||feedback.get(item.canonicalUrl)?.status!=='dismissed').map(item=>({...item,feedback:feedback.get(item.canonicalUrl)||null}));
  return send(200,{items,sourceHealth:state.research.health,lastRefresh:state.research.lastRefresh,sourceCount:state.research.records.length,profileRequired:!profile?.domains?.length});
+}
+if(url.pathname==='/api/account/related'&&req.method==='GET'){
+ if(!account)return send(401,{error:'Sign in first'});
+ const target=state.research.records.find(item=>item.canonicalUrl===url.searchParams.get('url'));
+ if(!target)return send(404,{error:'Research source unavailable'});
+ const eligible=recommend([target],jobStore.loadProfile(account.id)?.profile,{mode:'focused'}).length;
+ if(!eligible)return send(403,{error:'This source does not match your selected domains'});
+ return send(200,relatedWork(target,state.research.records,state.signals));
 }
 if(url.pathname==='/api/account/research-refresh'&&req.method==='POST'){
  if(!account)return send(401,{error:'Sign in first'});

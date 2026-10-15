@@ -12,7 +12,7 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
   const filename=path.join(directory,'state.sqlite');
   try{
     let store=openV3Store(filename);
-    assert.equal(store.schemaVersion,4);
+    assert.equal(store.schemaVersion,5);
     const complete=randomUUID(),interrupted=randomUUID();
     store.begin(complete,'discover');store.stage(complete,'scout');store.finish(complete,'complete','scout');
     store.begin(interrupted,'build');store.stage(interrupted,'builder');
@@ -71,6 +71,19 @@ test('saved and dismissed research feedback stays scoped to one account',async()
     assert.equal(store.deleteFeedback(second.id,url),0);
     assert.equal(store.deleteFeedback(first.id,url),1);
     assert.throws(()=>store.saveFeedback(first.id,'http://localhost/private','saved'));
+  }finally{store.close();await rm(directory,{recursive:true,force:true});}
+});
+test('Nebula and Sunset preferences persist per user and reject invalid themes',async()=>{
+  const directory=await mkdtemp(path.join(os.tmpdir(),'forge-v3-themes-'));
+  const filename=path.join(directory,'themes.sqlite');let store=openV3Store(filename);
+  try{
+    const first=store.createUser('one@example.test','a-long-owner-password','owner');
+    const second=store.createUser('two@example.test','another-long-password');
+    assert.equal(store.appearance(first.id).theme,'nebula');
+    store.saveAppearance(first.id,'sunset',true);
+    assert.throws(()=>store.saveAppearance(first.id,'eclipse',false));
+    store.close();store=openV3Store(filename);
+    assert.deepEqual([store.appearance(first.id).theme,store.appearance(first.id).reducedMotion,store.appearance(second.id).theme],['sunset',true,'nebula']);
   }finally{store.close();await rm(directory,{recursive:true,force:true});}
 });
 

@@ -60,3 +60,14 @@ export function recommend(records,profile,options={}){
   }
   return items.sort((a,b)=>b.ranking.score-a.ranking.score||String(b.publishedAt||'').localeCompare(String(a.publishedAt||'')));
 }
+const stop=new Set(['about','after','against','application','approach','based','between','building','could','detection','different','engineering','framework','from','into','model','models','paper','project','research','software','study','system','systems','that','their','there','these','this','through','using','with']);
+const terms=value=>new Set(String(value||'').toLowerCase().match(/[a-z][a-z0-9-]{3,}/g)?.filter(word=>!stop.has(word))||[]);
+export function relatedWork(target,records=[],signals=[]){
+  const titleTerms=terms(target?.sourceTitle||target?.title),results=[];
+  if(titleTerms.size<2)return {items:[],coverage:'Insufficient title terms for a local comparison'};
+  const candidates=[...records.map(record=>({title:record.sourceTitle,url:record.canonicalUrl,kind:record.sourceType||'research source',publishedAt:record.publishedAt||null})),...signals.filter(signal=>signal.source==='GitHub'&&/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(signal.url||'')).map(signal=>({title:signal.title,url:signal.url,kind:'GitHub repository',publishedAt:signal.publishedAt||null}))];
+  const seen=new Set([target.canonicalUrl]);
+  for(const item of candidates){if(!item.title||!item.url||seen.has(item.url))continue;seen.add(item.url);const other=terms(item.title),overlap=[...titleTerms].filter(word=>other.has(word));if(overlap.length<2)continue;results.push({...item,sharedTerms:overlap,similarity:Math.round(100*overlap.length/new Set([...titleTerms,...other]).size)});}
+  results.sort((a,b)=>b.similarity-a.similarity);
+  return {items:results.slice(0,8),coverage:'Local cached research and collected GitHub repository titles only. This cannot establish worldwide originality or an open research gap.'};
+}
