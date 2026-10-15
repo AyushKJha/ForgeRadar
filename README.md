@@ -73,6 +73,12 @@ Scores are estimates. There is no measured historical trend model, comprehensive
 
 State is stored in `data/state.json`; project artifacts are under `projects/<id>/`. Model output failures preserve prior artifacts and are visible in the circuit.
 
+## Local backup and recovery
+
+Run `node backup.mjs` before a migration or major update. It creates a timestamped private snapshot under `data/backups/` containing a validated copy of `data/state.json`, consistent SQLite snapshots for project databases, and SHA-256 checksums in `manifest.json`. Back up that directory to storage you control; it is excluded from GitHub.
+
+To recover, stop the local ForgeRadar engine and bridge, copy the current `data/state.json` and project databases elsewhere for safekeeping, verify each backup file against `manifest.json`, then copy the selected snapshot's files back to the same relative paths. Start the engine and run its tests and a project data check. Do not restore a snapshot over a running database. Platform credentials in `data/deployment.json` and `data/render-secrets.env` are deliberately not in this backup and must be stored separately in a secure location.
+
 ## API references
 
 - https://docs.ollama.com/api/chat
