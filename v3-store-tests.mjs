@@ -12,7 +12,7 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
   const filename=path.join(directory,'state.sqlite');
   try{
     let store=openV3Store(filename);
-    assert.equal(store.schemaVersion,2);
+    assert.equal(store.schemaVersion,3);
     const complete=randomUUID(),interrupted=randomUUID();
     store.begin(complete,'discover');store.stage(complete,'scout');store.finish(complete,'complete','scout');
     store.begin(interrupted,'build');store.stage(interrupted,'builder');
@@ -34,6 +34,27 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
     assert.throws(()=>store.putCache('../secret','openalex',{},60000));
     store.close();
   }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('local accounts hash passwords, expire sessions and isolate profile rows',async()=>{
+  const directory=await mkdtemp(path.join(os.tmpdir(),'forge-v3-accounts-'));
+  const store=openV3Store(path.join(directory,'accounts.sqlite'));
+  try{
+    const owner=store.createUser('owner@example.test','a-long-owner-password','owner');
+    const member=store.createUser('member@example.test','a-long-member-password');
+    assert.equal(store.verifyUser('owner@example.test','wrong-password'),null);
+    assert.equal(store.verifyUser('owner@example.test','a-long-owner-password').id,owner.id);
+    assert.throws(()=>store.createUser('another@example.test','another-long-password','owner'));
+    const token=store.createSession(member.id);
+    assert.equal(store.authenticate(token).id,member.id);
+    store.saveProfile(owner.id,{domains:['cybersecurity']},true);
+    assert.equal(store.loadProfile(member.id),null);
+    store.saveProfile(member.id,{domains:['embedded_systems']},true);
+    assert.deepEqual(store.loadProfile(owner.id).profile.domains,['cybersecurity']);
+    assert.deepEqual(store.loadProfile(member.id).profile.domains,['embedded_systems']);
+    store.destroySession(token);
+    assert.equal(store.authenticate(token),null);
+  }finally{store.close();await rm(directory,{recursive:true,force:true});}
 });
 
 test('scheduler retains the next collection time across engine construction',()=>{

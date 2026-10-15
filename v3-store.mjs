@@ -1,5 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
-import {mkdirSync} from 'node:fs';
+import {mkdirSync,chmodSync} from 'node:fs';
+import {createHash,randomBytes,scryptSync,timingSafeEqual,randomUUID} from 'node:crypto';
 import path from 'node:path';
 
 const migrations=[
@@ -33,12 +34,34 @@ const migrations=[
     finished_at TEXT,
     error TEXT
   );
-  CREATE INDEX IF NOT EXISTS pending_commands_queue ON pending_commands(status,queued_at);`
+  CREATE INDEX IF NOT EXISTS pending_commands_queue ON pending_commands(status,queued_at);`,
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('owner','member')),
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+  CREATE TABLE IF NOT EXISTS profiles (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    profile_json TEXT NOT NULL,
+    consent_at TEXT,
+    updated_at TEXT NOT NULL
+  );`
 ];
 
 export function openV3Store(filename){
   mkdirSync(path.dirname(filename),{recursive:true});
   const db=new DatabaseSync(filename);
+  if(process.platform!=='win32'){chmodSync(path.dirname(filename),0o700);chmodSync(filename,0o600);}
   db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
   const current=db.prepare('SELECT COALESCE(MAX(version),0) AS version FROM schema_migrations').get().version;
@@ -65,6 +88,16 @@ export function openV3Store(filename){
   const claimCommand=db.prepare("UPDATE pending_commands SET status='claimed',claimed_at=? WHERE id=? AND status='queued'");
   const finishCommand=db.prepare("UPDATE pending_commands SET status=?,finished_at=?,error=? WHERE id=? AND status='claimed'");
   const pendingCount=db.prepare("SELECT COUNT(*) AS count FROM pending_commands WHERE status='queued'");
+  const userCount=db.prepare('SELECT COUNT(*) AS count FROM users');
+  const insertUser=db.prepare('INSERT INTO users (id,email,password_salt,password_hash,role,created_at) VALUES (?,?,?,?,?,?)');
+  const userByEmail=db.prepare('SELECT id,email,password_salt AS salt,password_hash AS hash,role FROM users WHERE email=?');
+  const insertSession=db.prepare('INSERT INTO sessions (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)');
+  const sessionByHash=db.prepare('SELECT u.id,u.email,u.role,s.expires_at AS expiresAt FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?');
+  const deleteSession=db.prepare('DELETE FROM sessions WHERE token_hash=?');
+  const upsertProfile=db.prepare('INSERT INTO profiles (user_id,profile_json,consent_at,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET profile_json=excluded.profile_json,consent_at=excluded.consent_at,updated_at=excluded.updated_at');
+  const profileByUser=db.prepare('SELECT profile_json AS json,consent_at AS consentAt,updated_at AS updatedAt FROM profiles WHERE user_id=?');
+  const deleteProfile=db.prepare('DELETE FROM profiles WHERE user_id=?');
+  const tokenHash=token=>createHash('sha256').update(token).digest('hex');
   return {
     schemaVersion:migrations.length,
     interruptedOnOpen:Number(interrupted)+Number(interruptedCommands),
@@ -75,6 +108,26 @@ export function openV3Store(filename){
     enqueue({id,kind,input=null,commandId=null}){if(!/^[a-f0-9-]{36}$/i.test(id)||!['prompt','discover','build','sync','daily'].includes(kind)||input!==null&&(typeof input!=='string'||input.length>8000)||commandId!==null&&!/^[-a-zA-Z0-9]{8,100}$/.test(commandId))throw new Error('Invalid queued command');if(commandId){const prior=commandByReceipt.get(commandId);if(prior)return prior;}insertCommand.run(id,kind,input,commandId,new Date().toISOString());return commandById.get(id);},
     claimNext(){db.exec('BEGIN IMMEDIATE');try{const command=nextCommand.get();if(command)claimCommand.run(new Date().toISOString(),command.id);db.exec('COMMIT');return command?{...command,status:'claimed'}:null;}catch(error){db.exec('ROLLBACK');throw error;}},
     finishCommand(id,status,error=null){if(!['complete','blocked','cancelled'].includes(status))throw new Error('Invalid command result');finishCommand.run(status,new Date().toISOString(),error?String(error).slice(0,500):null,id);},
+    userCount(){return Number(userCount.get().count);},
+    createUser(email,password,role='member'){
+      email=String(email||'').trim().toLowerCase();
+      if(!/^[^@\s]{1,64}@[^@\s]{2,180}$/.test(email)||typeof password!=='string'||password.length<12||password.length>200||!['owner','member'].includes(role))throw new Error('Use a valid email and a password of 12 to 200 characters');
+      if(role==='owner'&&Number(userCount.get().count)>0)throw new Error('Owner account already exists');
+      const salt=randomBytes(24).toString('hex'),hash=scryptSync(password,salt,64).toString('hex'),id=randomUUID();
+      insertUser.run(id,email,salt,hash,role,new Date().toISOString());return {id,email,role};
+    },
+    verifyUser(email,password){
+      const user=userByEmail.get(String(email||'').trim().toLowerCase());
+      const derived=scryptSync(String(password||''),user?.salt||'missing-account-salt',64);
+      const expected=Buffer.from(user?.hash||'00'.repeat(64),'hex');
+      return user&&timingSafeEqual(derived,expected)?{id:user.id,email:user.email,role:user.role}:null;
+    },
+    createSession(userId){const token=randomBytes(32).toString('hex'),now=Date.now();insertSession.run(tokenHash(token),userId,new Date(now+12*3600000).toISOString(),new Date(now).toISOString());return token;},
+    authenticate(token){if(!/^[a-f0-9]{64}$/.test(String(token||'')))return null;const user=sessionByHash.get(tokenHash(token));return user&&Date.parse(user.expiresAt)>Date.now()?{id:user.id,email:user.email,role:user.role}:null;},
+    destroySession(token){if(/^[a-f0-9]{64}$/.test(String(token||'')))deleteSession.run(tokenHash(token));},
+    saveProfile(userId,profile,consent){const json=JSON.stringify(profile);if(json.length>20000)throw new Error('Profile too large');const now=new Date().toISOString();upsertProfile.run(userId,json,consent?now:null,now);return {profile,consentAt:consent?now:null,updatedAt:now};},
+    loadProfile(userId){const row=profileByUser.get(userId);return row?{profile:JSON.parse(row.json),consentAt:row.consentAt,updatedAt:row.updatedAt}:null;},
+    deleteProfile(userId){return Number(deleteProfile.run(userId).changes);},
     putCache(key,provider,payload,ttlMs,etag=null){if(!/^[a-z0-9:_/-]{1,180}$/i.test(key)||!/^[a-z0-9_-]{1,40}$/i.test(provider)||!Number.isFinite(ttlMs)||ttlMs<1000||ttlMs>604800000)throw new Error('Invalid cache entry');const json=JSON.stringify(payload);if(json.length>1000000)throw new Error('Cache entry too large');const now=Date.now();putCache.run(key,provider,json,new Date(now).toISOString(),new Date(now+ttlMs).toISOString(),etag);},
     getCache(key,{allowStale=false}={}){const row=getCache.get(key);if(!row||(!allowStale&&Date.parse(row.expiresAt)<=Date.now()))return null;return {...row,payload:JSON.parse(row.payload),stale:Date.parse(row.expiresAt)<=Date.now()};},
     close(){db.close();}

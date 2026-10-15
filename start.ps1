@@ -4,6 +4,14 @@ $taskProjectDir = $PSScriptRoot
 $taskRuntimeDir = [IO.Path]::GetFullPath((Join-Path $taskProjectDir '../../work/ollama'))
 $taskLogDir = Join-Path $taskProjectDir 'data'
 New-Item -ItemType Directory -Force -Path $taskLogDir | Out-Null
+$taskLocalTokenFile = Join-Path $taskLogDir 'local-service-token.json'
+$taskHeaders = @{}
+$taskBundledPython = Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
+if (-not $env:FORGERADAR_PYTHON -and (Test-Path -LiteralPath $taskBundledPython)) { $env:FORGERADAR_PYTHON = $taskBundledPython }
+if (Test-Path -LiteralPath $taskLocalTokenFile) {
+    $taskLocalToken = (Get-Content -LiteralPath $taskLocalTokenFile -Raw | ConvertFrom-Json).token
+    $taskHeaders.Authorization = 'Bearer ' + $taskLocalToken
+}
 if (-not $NoModel) {
     $taskOllamaReady = $false
     try { $null = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 2; $taskOllamaReady = $true } catch {}
@@ -25,7 +33,7 @@ if (-not $NoModel) {
     }
 }
 $taskEngineReady = $false
-try { $null = Invoke-RestMethod -Uri 'http://127.0.0.1:4317/api/machine' -TimeoutSec 2; $taskEngineReady = $true } catch {}
+try { $null = Invoke-RestMethod -Uri 'http://127.0.0.1:4317/api/machine' -Headers $taskHeaders -TimeoutSec 2; $taskEngineReady = $true } catch {}
 if (-not $taskEngineReady) {
     $taskNodeExe = (Get-Command node -ErrorAction Stop).Source
     $taskServerFile = Join-Path $taskProjectDir 'server.mjs'
@@ -34,11 +42,16 @@ if (-not $taskEngineReady) {
 }
 for ($taskWait=0; $taskWait -lt 45; $taskWait++) {
     try {
-        $null=Invoke-RestMethod 'http://127.0.0.1:4317/api/machine' -TimeoutSec 2
+        if (-not $taskHeaders.Authorization -and (Test-Path -LiteralPath $taskLocalTokenFile)) {
+            $taskLocalToken = (Get-Content -LiteralPath $taskLocalTokenFile -Raw | ConvertFrom-Json).token
+            $taskHeaders.Authorization = 'Bearer ' + $taskLocalToken
+        }
+        $null=Invoke-RestMethod 'http://127.0.0.1:4317/api/machine' -Headers $taskHeaders -TimeoutSec 2
         if (-not $NoModel) { $null=Invoke-RestMethod 'http://127.0.0.1:11434/api/tags' -TimeoutSec 2 }
         break
     } catch { Start-Sleep -Seconds 1 }
 }
+& (Join-Path $taskProjectDir 'secure-private.ps1')
 $taskDeploymentFile=Join-Path $taskLogDir 'deployment.json'
 if ((Test-Path -LiteralPath $taskDeploymentFile) -and (Get-Content -LiteralPath $taskDeploymentFile -Raw|ConvertFrom-Json).url) {
     $taskBridgeRunning=$false

@@ -4,15 +4,18 @@ import {openV3Store} from './v3-store.mjs';
 import {collectResearch} from './research-sources.mjs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomBytes,timingSafeEqual} from 'node:crypto';
 import os from 'node:os';
 import {createOrchestrator} from './orchestrator.mjs';
 import {isolatedPreview} from './preview.mjs';
 import {openApp} from './app-kit.mjs';
+import {validateProfile,domains} from './v3-profile.mjs';
+import {previewResume} from './resume-parser.mjs';
+import {previewGithubPortfolio} from './portfolio-import.mjs';
 export const defaults={career:25,problem:20,adoption:15,trend:10,learning:10,feasibility:10,gap:5,novelty:5};
 export function score(metrics,weights=defaults){const total=Object.values(weights).reduce((a,b)=>a+b,0);return total?Math.round(Object.keys(defaults).reduce((a,k)=>a+(metrics[k]||0)*(weights[k]||0),0)/total):0;}
 const root=path.dirname(fileURLToPath(import.meta.url));
-const data=path.join(root,'data');
+const data=process.env.FORGERADAR_DATA_DIR?path.resolve(process.env.FORGERADAR_DATA_DIR):path.join(root,'data');
 let state={opportunities:[],signals:[],projects:[],runs:[],weights:defaults,model:'',lastRefresh:null};
 await mkdir(data,{recursive:true});
 try{state={...state,...JSON.parse(await readFile(path.join(data,'state.json'),'utf8'))};}catch(e){if(e.code!=='ENOENT')throw e;}
@@ -45,13 +48,67 @@ Object.assign(o,{title:a.title,problem:a.problem,users:a.users,critique:a.critiq
 export function proposal(o){return `# ${o.title}\n\n${o.problem}\n\n## Project direction\n${o.projectKind||"Create new project"} · ${o.origin||"Problem-derived idea"}\n\nOriginality is unverified; review the existing-solution check before claiming novelty.\n\n## Target users\n${o.users}\n\n## MVP\n${o.mvp.map(x=>'- '+x).join('\n')}\n\n## Suggested stack\n${o.stack}\n\n## Critic\n${o.critique}\n\n## Evidence\n${o.evidence.map(x=>'- '+x.title+' — '+x.url).join('\n')}\n\nScoring method: ${o.method}. Scores are estimates, not adoption predictions.\n`;}
 let busy=false;
 const jobStore=openV3Store(path.join(data,'forgeradar-v3.sqlite'));
+const loginAttempts=new Map();
+let localBridgeToken;
+try{localBridgeToken=JSON.parse(await readFile(path.join(data,'local-service-token.json'),'utf8')).token;}catch(error){if(error.code!=='ENOENT')throw error;localBridgeToken=randomBytes(32).toString('hex');await writeFile(path.join(data,'local-service-token.json'),JSON.stringify({token:localBridgeToken}),{flag:'wx',mode:0o600});}
+try{const deployment=JSON.parse(await readFile(path.join(data,'deployment.json'),'utf8'));if(jobStore.userCount()===0&&typeof deployment.password==='string'&&deployment.password.length>=12)jobStore.createUser('owner@forgeradar.local',deployment.password,'owner');}catch(error){if(error.code!=='ENOENT')throw error;}
 const runtime=createOrchestrator({state,root,persist,refresh,models,jsonFetch,score,proposal,jobStore});
 const applications=new Map();
 async function applicationRequest(id,operation){const project=state.projects.find(p=>p.id===id&&p.buildMode==='fullstack'&&p.appSpec);if(!project)throw new Error('Application not found');let application=applications.get(id);const signature=JSON.stringify(project.appSpec);if(application?.signature!==signature){application?.service.close();application={signature,service:openApp(project.appSpec,path.join(root,'projects',id,'data/app.sqlite'))};applications.set(id,application);}return application.service.request(operation);}
-const server=http.createServer(async(req,res)=>{try{
+export const server=http.createServer(async(req,res)=>{try{
 if(![`127.0.0.1:${process.env.PORT||4317}`,`localhost:${process.env.PORT||4317}`].includes(req.headers.host)){res.writeHead(403);res.end('Unknown local host');return;}
 const url=new URL(req.url,'http://localhost');
 const send=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(obj));};
+const sessionToken=req.headers.cookie?.match(/(?:^|; )forge_local=([a-f0-9]{64})(?:;|$)/)?.[1];
+const account=jobStore.authenticate(sessionToken);
+const supplied=String(req.headers.authorization||'').replace(/^Bearer /,'');
+const bridgeAuthorized=Boolean(localBridgeToken&&supplied.length===localBridgeToken.length&&timingSafeEqual(Buffer.from(supplied),Buffer.from(localBridgeToken)));
+if(url.pathname==='/api/account/session'&&req.method==='GET')return send(200,{authenticated:!!account,user:account,setupRequired:jobStore.userCount()===0});
+if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
+ if(req.method!=='POST')return send(405,{error:'Method not allowed'});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Request too large'});}
+ const body=JSON.parse(raw||'{}');
+ let user;
+ if(url.pathname.endsWith('/register'))user=jobStore.createUser(body.email,body.password,jobStore.userCount()===0?'owner':'member');
+ else {const key=`${req.socket.remoteAddress}:${String(body.email||'').toLowerCase()}`;const prior=loginAttempts.get(key);if(prior&&prior.count>=8&&Date.now()-prior.at<600000)return send(429,{error:'Too many sign-in attempts. Try again in ten minutes.'});user=jobStore.verifyUser(body.email,body.password);if(!user){loginAttempts.set(key,{at:prior&&Date.now()-prior.at<600000?prior.at:Date.now(),count:prior&&Date.now()-prior.at<600000?prior.count+1:1});return send(401,{error:'Incorrect email or password'});}loginAttempts.delete(key);}
+ const token=jobStore.createSession(user.id);
+ res.setHeader('Set-Cookie',`forge_local=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200`);
+ return send(200,{authenticated:true,user});
+}
+if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie','forge_local=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
+if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
+if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{user:account,profile:jobStore.loadProfile(account.id)});}
+if(url.pathname==='/api/account/resume-preview'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.method!=='POST')return send(405,{error:'Method not allowed'});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8_200_000)return send(413,{error:'Résumé exceeds the 6 MB file limit'});}
+ const body=JSON.parse(raw||'{}');return send(200,await previewResume(body,data));
+}
+if(url.pathname==='/api/account/portfolio-preview'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.method!=='POST')return send(405,{error:'Method not allowed'});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000)return send(413,{error:'Portfolio URL is too long'});}
+ const body=JSON.parse(raw||'{}');return send(200,await previewGithubPortfolio(body.url,{cache:jobStore}));
+}
+if(url.pathname==='/api/account/profile'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.method==='GET')return send(200,jobStore.loadProfile(account.id)||{profile:null});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteProfile(account.id)});
+ if(req.method==='POST'){let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>24000)return send(413,{error:'Profile too large'});}const body=JSON.parse(raw||'{}');if(body.consent!==true)return send(400,{error:'Consent is required before saving a private profile'});return send(200,jobStore.saveProfile(account.id,validateProfile(body.profile),true));}
+ return send(405,{error:'Method not allowed'});
+}
+if(url.pathname==='/v3'||url.pathname==='/v3.js'||url.pathname==='/v3.css'){
+ if(!account){res.writeHead(302,{Location:'/'});res.end();return;}
+ const file=url.pathname==='/v3'?'v3.html':url.pathname.slice(1);
+ res.writeHead(200,{'Content-Type':file.endsWith('.html')?'text/html; charset=utf-8':file.endsWith('.css')?'text/css':'text/javascript','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(await readFile(path.join(root,'public',file)));return;
+}
+if(req.method==='GET'&&account&&['/style.css','/design.css'].includes(url.pathname)){res.writeHead(200,{'Content-Type':'text/css','X-Content-Type-Options':'nosniff'});res.end(await readFile(path.join(root,'public',url.pathname.slice(1))));return;}
+if(!account&&!bridgeAuthorized){if(req.method==='GET'&&url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(await readFile(path.join(root,'public/local-login.html')));return;}if(req.method==='GET'&&['/v3-login.js','/v3.css','/style.css','/design.css'].includes(url.pathname)){const file=url.pathname.slice(1);res.writeHead(200,{'Content-Type':file.endsWith('.css')?'text/css':'text/javascript'});res.end(await readFile(path.join(root,'public',file)));return;}return send(401,{error:'Sign in to the local workspace'});}
+if(account?.role!=='owner'&&!bridgeAuthorized){if(req.method==='GET'&&url.pathname==='/'){res.writeHead(302,{Location:'/v3'});res.end();return;}return send(403,{error:'Owner workspace access required'});}
 if(req.method==='GET'&&url.pathname==='/api/commands')return send(200,{workerOnline:true,busy:busy||runtime.active(),results:state.commandReceipts||[]});
 if(req.method==='GET'&&/^\/apps\/[-a-f0-9]{36}\/(?:workspace\.(?:css|js))?$/.test(url.pathname)){const parts=url.pathname.split('/');if(!state.projects.some(p=>p.id===parts[2]&&p.appSpec))return send(404,{error:'Application unavailable'});const filename=parts[3]||'workspace.html';res.writeHead(200,{'Content-Type':filename.endsWith('.html')?'text/html; charset=utf-8':filename.endsWith('.css')?'text/css':'text/javascript','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'"});res.end(await readFile(path.join(root,'public',filename)));return;}
 if(req.method==='GET'&&url.pathname==='/api/machine')return send(200,runtime.status());
@@ -92,4 +149,5 @@ return send(404,{error:'Unknown action'});
 }
 const files={'/':'index.html','/app.js':'app.js','/console.js':'console.js','/outbox.js':'outbox.js','/design.js':'design.js','/design.css':'design.css','/style.css':'style.css'};if(req.method!=='GET'||!files[url.pathname])return send(404,{error:'Not found'});const ext=path.extname(files[url.pathname]);res.writeHead(200,{'Content-Type':ext==='.html'?'text/html; charset=utf-8':ext==='.css'?'text/css':'text/javascript','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; frame-src 'self'; connect-src 'self'; frame-ancestors 'none'"});res.end(await readFile(path.join(root,'public',files[url.pathname])));
 }catch(e){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message}));}});
+export function closeLocalRuntime(){runtime.stop();jobStore.close();}
 if(process.argv[1]===fileURLToPath(import.meta.url))server.listen(Number(process.env.PORT||4317),'127.0.0.1',()=>{console.log('ForgeRadar running at http://127.0.0.1:4317');runtime.resumePending().catch(error=>console.error('Queued work recovery failed:',error.message));});

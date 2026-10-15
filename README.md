@@ -28,6 +28,14 @@ On Windows, run `./start.ps1` in PowerShell. It launches the engine in the backg
 
 Alternatively, start Ollama separately and run `node server.mjs`.
 
+### V3 local accounts and profile
+
+Open the local address and sign in. On the existing owner's laptop, the first owner account is `owner@forgeradar.local` with the existing workshop password; the password is hashed in the local SQLite database. On a clean installation without prior deployment credentials, the first registered account becomes the owner. Other local accounts have separate private profile rows and cannot access the legacy owner workspace or its project APIs. The existing remote Render dashboard still has its separate owner password; member profiles are local until the V3 remote-access phase is complete.
+
+The V3 profile page lets each account select and exclude interests, review claimed skills and portfolio projects, save with consent, export data or delete the profile. GitHub portfolio preview uses only GitHub's public REST API after you enter a profile URL and click review. It reads at most 30 public repositories, caches for one hour, and saves only selections you make. Public profile ownership is not verified by this import.
+
+Résumé preview parses PDF or DOCX locally and deletes the temporary uploaded file immediately. It offers editable suggestions with source lines; it never silently saves them or treats CV claims as verified skills. Install Python 3 and the free packages with `python -m pip install pypdf python-docx` on a clean laptop. Set `FORGERADAR_PYTHON` to the Python executable when it is not on PATH. Manual onboarding works without Python. The parser rejects files over 6 MB, encrypted/active PDFs and macro or oversized DOCX archives. Scanned image PDFs need manual entry.
+
 Run `./install-worker.ps1` once on Windows to install the current-user startup shortcut and recovery supervisor. It starts at Windows sign-in and checks the engine, model and bridge every 30 seconds. Remove **ForgeRadar Worker.lnk** from your Startup folder to disable automatic startup. This installation uses no administrator privilege and does not run while Windows is off.
 
 For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded under `../../work/ollama`. The launcher also supports an Ollama installation on PATH. On another machine, install Ollama from https://ollama.com/download and download an appropriate local model. This laptop has 16 GB system RAM and an RTX 4060 with 8 GB GPU memory; inference is sequential to limit resource usage.
