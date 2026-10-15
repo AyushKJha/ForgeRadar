@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
+import {openV3Store} from './v3-store.mjs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -40,7 +41,8 @@ const a=JSON.parse(result.message.content);for(const k of ['title','problem','us
 Object.assign(o,{title:a.title,problem:a.problem,users:a.users,critique:a.critique,stack:a.stack,mvp:a.mvp.slice(0,6),metrics:a.metrics,method:`Local AI · ${model}`,confidence:'Model estimate — validate with users'});state.runs.unshift({id:randomUUID(),at:new Date().toISOString(),type:'Local analysis',status:'Complete',detail:o.title,warnings:[]});await persist();}
 export function proposal(o){return `# ${o.title}\n\n${o.problem}\n\n## Project direction\n${o.projectKind||"Create new project"} · ${o.origin||"Problem-derived idea"}\n\nOriginality is unverified; review the existing-solution check before claiming novelty.\n\n## Target users\n${o.users}\n\n## MVP\n${o.mvp.map(x=>'- '+x).join('\n')}\n\n## Suggested stack\n${o.stack}\n\n## Critic\n${o.critique}\n\n## Evidence\n${o.evidence.map(x=>'- '+x.title+' — '+x.url).join('\n')}\n\nScoring method: ${o.method}. Scores are estimates, not adoption predictions.\n`;}
 let busy=false;
-const runtime=createOrchestrator({state,root,persist,refresh,models,jsonFetch,score,proposal});
+const jobStore=openV3Store(path.join(data,'forgeradar-v3.sqlite'));
+const runtime=createOrchestrator({state,root,persist,refresh,models,jsonFetch,score,proposal,jobStore});
 const applications=new Map();
 async function applicationRequest(id,operation){const project=state.projects.find(p=>p.id===id&&p.buildMode==='fullstack'&&p.appSpec);if(!project)throw new Error('Application not found');let application=applications.get(id);const signature=JSON.stringify(project.appSpec);if(application?.signature!==signature){application?.service.close();application={signature,service:openApp(project.appSpec,path.join(root,'projects',id,'data/app.sqlite'))};applications.set(id,application);}return application.service.request(operation);}
 const server=http.createServer(async(req,res)=>{try{

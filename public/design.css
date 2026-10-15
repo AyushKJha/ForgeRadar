@@ -32,3 +32,11 @@ main{width:calc(100% - 206px);padding:28px 34px 30px;max-width:1700px}header{pad
 :root[data-theme=eclipse] .workspace-context{background:linear-gradient(155deg,#25213a,#13232c 65%,#2a2126)}
 :root[data-theme=eclipse] .scene-label{border-color:#836c8a55;color:#ddc5f6}
 :root[data-theme=eclipse] .label-one{color:#9ce8d5}:root[data-theme=eclipse] .label-three{color:#ffbc8f}
+/* V3 diagnostics reuse the existing panel and semantic Eclipse colors. */
+.v3-diagnostics{margin-top:18px}
+.v3-diagnostics .diagnostic-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.v3-diagnostics .diagnostic-grid>div{padding:14px;border:1px solid rgba(180,155,225,.2);border-radius:14px;background:rgba(20,16,38,.45);min-width:0}
+.v3-diagnostics .diagnostic-grid span{display:block;color:var(--muted,#a7a0b6);font-size:.78rem;margin-bottom:7px}
+.v3-diagnostics .diagnostic-grid strong{display:block;overflow-wrap:anywhere}
+.v3-diagnostics li{margin:.4rem 0;overflow-wrap:anywhere}
+@media(max-width:760px){.v3-diagnostics .diagnostic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

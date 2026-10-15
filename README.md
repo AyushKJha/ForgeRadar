@@ -51,7 +51,7 @@ Posts imported through Ports are preserved across refreshes. Evidence selection 
 
 The engine reuses Git Credential Manager credentials saved for github.com, or an existing GITHUB_TOKEN/GH_TOKEN environment variable. It never displays or stores a token in application state. Credentials must permit repository creation and contents changes.
 
-The platform source repository is private **AyushKJha/ForgeRadar**. Run `node platform-sync.mjs "Describe the source changes"` to commit platform changes. Runtime data, models, generated projects and environment files are excluded.
+The platform source repository is public **AyushKJha/ForgeRadar**. Run `node platform-sync.mjs "Describe the source changes"` only when the owner has approved publishing the source changes. Runtime data, models, generated projects and environment files are excluded.
 
 Generated projects use separate private repositories. Only the explicit code/document allowlist is uploaded; logs, local state and credentials are not included. Unchanged snapshots do not create commits. Publishing to an existing unrelated repository is refused.
 
@@ -63,7 +63,7 @@ Enable automation in System to collect every six hours while the local engine is
 
 ## Validation and limits
 
-Run `npm test`. Tests cover scoring, social parsing, evidence sampling, scheduling, role ordering, artifact validation, durable SQLite CRUD, idempotency, app compilation, full-stack pipeline, authenticated relay delivery and stopping when a model is unavailable. The orchestration tests use model fixtures; a live model mission is a separate integration check.
+Run `node --test tests.mjs remote-tests.mjs app-kit-tests.mjs v3-store-tests.mjs` (or `npm test` when npm is installed). Tests cover scoring, social parsing, evidence sampling, scheduling, role ordering, artifact validation, durable SQLite CRUD, idempotency, app compilation, full-stack pipeline, authenticated relay delivery and stopping when a model is unavailable. The orchestration tests use model fixtures; a live model mission is a separate integration check.
 
 The builder supports two modes. **Offline prototype** generates custom HTML/CSS/JavaScript, sandboxed with network access disabled. **Persistent application** generates a typed data model for a reviewed Node + SQLite runtime: create/edit/delete records, search, CSV/JSON import, JSON export and persistence. Full-stack apps run through the owner dashboard and can run independently from their source repository using `npm start`. Generated app data and databases are excluded from GitHub. The model never executes arbitrary shell commands or installs packages.
 
@@ -75,7 +75,7 @@ State is stored in `data/state.json`; project artifacts are under `projects/<id>
 
 ## Local backup and recovery
 
-Run `node backup.mjs` before a migration or major update. It creates a timestamped private snapshot under `data/backups/` containing a validated copy of `data/state.json`, consistent SQLite snapshots for project databases, and SHA-256 checksums in `manifest.json`. Back up that directory to storage you control; it is excluded from GitHub.
+Run `node backup.mjs` before a migration or major update. It creates a timestamped private snapshot under `data/backups/` containing a validated copy of `data/state.json`, consistent SQLite snapshots for the V3 job/cache database and project databases, and SHA-256 checksums in `manifest.json`. Back up that directory to storage you control; it is excluded from GitHub.
 
 To recover, stop the local ForgeRadar engine and bridge, copy the current `data/state.json` and project databases elsewhere for safekeeping, verify each backup file against `manifest.json`, then copy the selected snapshot's files back to the same relative paths. Start the engine and run its tests and a project data check. Do not restore a snapshot over a running database. Platform credentials in `data/deployment.json` and `data/render-secrets.env` are deliberately not in this backup and must be stored separately in a secure location.
 

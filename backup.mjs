@@ -46,10 +46,24 @@ async function addProjectDatabases(){
   }
 }
 
+async function addV3Database(){
+  const relative='data/forgeradar-v3.sqlite';
+  const source=path.join(sourceRoot,relative);
+  let stat;
+  try{stat=await lstat(source);}catch(error){if(error.code==='ENOENT')return;throw error;}
+  if(!stat.isFile()||stat.isSymbolicLink())throw new Error('V3 database is not a regular file');
+  const output=path.join(destination,relative);
+  const db=new DatabaseSync(source,{readOnly:true});
+  try{db.exec(`VACUUM INTO ${quoteSql(output)}`);}finally{db.close();}
+  const bytes=await readFile(output);
+  manifest.files.push({path:relative,bytes:bytes.length,sha256:digest(bytes)});
+}
+
 try{
   await mkdir(destinationRoot,{recursive:true,mode:0o700});
   await mkdir(destination,{recursive:false,mode:0o700});
   await addJsonState();
+  await addV3Database();
   await addProjectDatabases();
   await writeFile(path.join(destination,'manifest.json'),JSON.stringify(manifest,null,2),{flag:'wx',mode:0o600});
   console.log(JSON.stringify({backup:destination,files:manifest.files.length,verified:manifest.files.every(file=>Boolean(file.sha256))}));
