@@ -50,6 +50,7 @@ export function proposal(o){return `# ${o.title}\n\n${o.problem}\n\n## Project d
 let busy=false;
 const jobStore=openV3Store(path.join(data,'forgeradar-v3.sqlite'));
 const loginAttempts=new Map();
+const researchAttempts=new Map();
 let localBridgeToken;
 try{localBridgeToken=JSON.parse(await readFile(path.join(data,'local-service-token.json'),'utf8')).token;}catch(error){if(error.code!=='ENOENT')throw error;localBridgeToken=randomBytes(32).toString('hex');await writeFile(path.join(data,'local-service-token.json'),JSON.stringify({token:localBridgeToken}),{flag:'wx',mode:0o600});}
 try{const deployment=JSON.parse(await readFile(path.join(data,'deployment.json'),'utf8'));if(jobStore.userCount()===0&&typeof deployment.password==='string'&&deployment.password.length>=12)jobStore.createUser('owner@forgeradar.local',deployment.password,'owner');}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -85,7 +86,49 @@ if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
  const profile=jobStore.loadProfile(account.id)?.profile;
  const mode=url.searchParams.get('mode')||'focused';
  const adjacent=url.searchParams.get('adjacent')==='true';
- return send(200,{items:recommend(state.research.records,profile,{mode,adjacent}),sourceHealth:state.research.health,lastRefresh:state.research.lastRefresh,sourceCount:state.research.records.length,profileRequired:!profile?.domains?.length});
+ const feedback=new Map(jobStore.listFeedback(account.id).map(item=>[item.canonicalUrl,item]));
+ const items=recommend(state.research.records,profile,{mode,adjacent}).filter(item=>url.searchParams.get('showDismissed')==='true'||feedback.get(item.canonicalUrl)?.status!=='dismissed').map(item=>({...item,feedback:feedback.get(item.canonicalUrl)||null}));
+ return send(200,{items,sourceHealth:state.research.health,lastRefresh:state.research.lastRefresh,sourceCount:state.research.records.length,profileRequired:!profile?.domains?.length});
+}
+if(url.pathname==='/api/account/research-refresh'&&req.method==='POST'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ const profile=jobStore.loadProfile(account.id)?.profile;
+ if(!profile?.domains?.length)return send(400,{error:'Save at least one selected domain first'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
+ if(!Array.isArray(body.sources)||!body.sources.length||body.sources.length>2||body.sources.some(item=>!['openalex','crossref'].includes(item)))return send(400,{error:'Opt in to OpenAlex or Crossref'});
+ const last=researchAttempts.get(account.id)||0;if(Date.now()-last<300000)return send(429,{error:'Wait five minutes before another live research refresh'});
+ if(busy||runtime.active())return send(409,{error:'A run is already in progress'});
+ researchAttempts.set(account.id,Date.now());busy=true;
+ try{
+   const selected=profile.domains.slice(0,3),results=[],health=[];
+   for(const id of selected){const label=domains.find(([key])=>key===id)?.[1];if(!label)continue;
+     const batch=await collectResearch({query:label,enabled:body.sources,cache:jobStore});results.push(...batch.results);health.push(...batch.health.map(item=>({...item,domain:id})));}
+   state.research.records=[...new Map([...results,...state.research.records].map(item=>[item.canonicalUrl,item])).values()].slice(0,300);
+   state.research.health=health;state.research.lastRefresh=new Date().toISOString();await persist();
+   return send(200,{fetched:results.length,health,lastRefresh:state.research.lastRefresh,scannedDomains:selected});
+ }finally{busy=false;}
+}
+if(url.pathname==='/api/account/discovery-feedback'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.method==='GET')return send(200,{items:jobStore.listFeedback(account.id)});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1200)return send(413,{error:'Feedback too long'});}const body=JSON.parse(raw||'{}');
+ if(!state.research.records.some(item=>item.canonicalUrl===body.canonicalUrl))return send(404,{error:'Research source unavailable'});
+ if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteFeedback(account.id,body.canonicalUrl)});
+ if(req.method==='POST')return send(200,jobStore.saveFeedback(account.id,body.canonicalUrl,body.status,body.reason||''));
+ return send(405,{error:'Method not allowed'});
+}
+if(url.pathname==='/api/account/battle'&&req.method==='POST'){
+ if(!account)return send(401,{error:'Sign in first'});
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>3200)return send(413,{error:'Comparison too large'});}const body=JSON.parse(raw||'{}');
+ if(!Array.isArray(body.urls)||body.urls.length<2||body.urls.length>5||new Set(body.urls).size!==body.urls.length)return send(400,{error:'Compare 2 to 5 different saved sources'});
+ const saved=new Set(jobStore.listFeedback(account.id).filter(item=>item.status==='saved').map(item=>item.canonicalUrl));
+ if(body.urls.some(item=>!saved.has(item)))return send(403,{error:'Save each source before comparing it'});
+ const items=recommend(state.research.records,jobStore.loadProfile(account.id)?.profile,{mode:body.mode||'focused'}).filter(item=>body.urls.includes(item.canonicalUrl));
+ if(items.length!==body.urls.length)return send(400,{error:'One or more sources no longer match the current profile'});
+ return send(200,{items,recommended:items[0].canonicalUrl,explanation:'Highest heuristic profile fit among selected sources. Cost, originality and build feasibility are not validated; inspect original evidence before approving a project.'});
 }
 if(url.pathname==='/api/account/resume-preview'){
  if(!account)return send(401,{error:'Sign in first'});

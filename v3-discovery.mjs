@@ -19,6 +19,7 @@ const patterns={
 };
 const modes=new Set(['focused','interdisciplinary','research','career','startup','challenge']);
 const weights={domain:30,usefulness:25,career:20,feasibility:15,originality:10};
+const modeWeights={focused:weights,interdisciplinary:weights,research:{domain:25,usefulness:20,career:15,feasibility:15,originality:25},career:{domain:25,usefulness:20,career:35,feasibility:15,originality:5},startup:{domain:25,usefulness:35,career:10,feasibility:20,originality:10},challenge:{domain:25,usefulness:25,career:15,feasibility:20,originality:15}};
 const text=record=>`${record.sourceTitle||record.title||''} ${record.excerpt||record.description||''}`.slice(0,1800);
 export function matchedDomains(record){const content=text(record);return Object.entries(patterns).filter(([,pattern])=>pattern.test(content)).map(([domain])=>domain);}
 export function eligibility(record,profile,{mode='focused',adjacent=false}={}){
@@ -41,14 +42,17 @@ export function rankResearch(record,profile,match,{mode='focused'}={}){
   const feasibility=clamp(hours&&horizon&&hours*horizon<40?35:hours&&hours*horizon>=100?70:50);
   const originality=20; // Similar-work scan has not verified novelty.
   const factors={domain,usefulness,career,feasibility,originality};
-  const score=Math.round(Object.entries(weights).reduce((sum,[key,weight])=>sum+factors[key]*weight,0)/100);
-  return {score,factors,weights,method:'Heuristic fit; estimates are unverified',uncertainty:['Usefulness inferred from source wording','Originality not verified against comparable work','Time and cost require an MVP plan'],mode};
+  const activeWeights=modeWeights[mode];
+  const score=Math.round(Object.entries(activeWeights).reduce((sum,[key,weight])=>sum+factors[key]*weight,0)/100);
+  return {score,factors,weights:activeWeights,method:'Heuristic fit; estimates are unverified',uncertainty:['Usefulness inferred from source wording','Originality not verified against comparable work','Time and cost require an MVP plan'],mode};
 }
 export function recommend(records,profile,options={}){
   const mode=options.mode||'focused';if(!modes.has(mode))throw new Error('Unknown discovery mode');
   const seen=new Set(),items=[];
   for(const record of records||[]){
     if(!record?.canonicalUrl||seen.has(record.canonicalUrl))continue;
+    if(mode==='research'&&!/research|paper|journal|preprint/i.test(record.sourceType||''))continue;
+    if(mode==='challenge'&&!/challenge|competition|hackathon/i.test(record.sourceType||''))continue;
     seen.add(record.canonicalUrl);
     const match=eligibility(record,profile,{mode,adjacent:options.adjacent===true});if(!match.eligible)continue;
     const ranking=rankResearch(record,profile,match,{mode});

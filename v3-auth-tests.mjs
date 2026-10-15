@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import http from 'node:http';
 
 test('local HTTP accounts isolate profiles and protect legacy owner APIs',async()=>{
   const directory=await mkdtemp(path.join(os.tmpdir(),'forge-v3-http-'));
+  await writeFile(path.join(directory,'state.json'),JSON.stringify({research:{enabled:[],query:'',records:[
+    {sourceTitle:'Cybersecurity vulnerability detection',canonicalUrl:'https://openalex.org/W123',provider:'OpenAlex',publishedAt:'2024-01-01',retrievedAt:'2026-10-15'},
+    {sourceTitle:'Malware threat detection',canonicalUrl:'https://openalex.org/W124',provider:'OpenAlex',publishedAt:'2024-02-01',retrievedAt:'2026-10-15'},
+    {sourceTitle:'Developer web framework',canonicalUrl:'https://openalex.org/W125',provider:'OpenAlex',publishedAt:'2024-03-01',retrievedAt:'2026-10-15'}
+  ],health:[],lastRefresh:null}}));
   process.env.FORGERADAR_DATA_DIR=directory;
   const {server,closeLocalRuntime}=await import('./server.mjs?auth-test');
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -33,8 +38,15 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal((await request('GET','/api/account/profile',null,ownerCookie)).body.profile,null);
     assert.equal((await request('GET','/api/account/discovery')).status,401);
     const memberDiscovery=await request('GET','/api/account/discovery?mode=focused',null,memberCookie);
-    assert.equal(memberDiscovery.status,200);assert.equal(memberDiscovery.body.profileRequired,false);assert.deepEqual(memberDiscovery.body.items,[]);
+    assert.equal(memberDiscovery.status,200);assert.equal(memberDiscovery.body.profileRequired,false);assert.deepEqual(memberDiscovery.body.items.map(item=>item.canonicalUrl).sort(),['https://openalex.org/W123','https://openalex.org/W124']);
     assert.equal((await request('GET','/api/account/discovery?mode=invalid',null,memberCookie)).status,400);
+    assert.equal((await request('POST','/api/account/discovery-feedback',{canonicalUrl:'https://openalex.org/W123',status:'saved'},memberCookie)).status,200);
+    assert.equal((await request('GET','/api/account/discovery-feedback',null,ownerCookie)).body.items.length,0);
+    assert.equal((await request('POST','/api/account/battle',{urls:['https://openalex.org/W123','https://openalex.org/W124']},memberCookie)).status,403);
+    assert.equal((await request('POST','/api/account/discovery-feedback',{canonicalUrl:'https://openalex.org/W124',status:'saved'},memberCookie)).status,200);
+    assert.equal((await request('POST','/api/account/battle',{urls:['https://openalex.org/W123','https://openalex.org/W124']},memberCookie)).status,200);
+    assert.equal((await request('POST','/api/account/discovery-feedback',{canonicalUrl:'https://openalex.org/W123',status:'dismissed',reason:'too common'},memberCookie)).status,200);
+    assert.deepEqual((await request('GET','/api/account/discovery',null,memberCookie)).body.items.map(item=>item.canonicalUrl),['https://openalex.org/W124']);
     const localToken=JSON.parse(await readFile(path.join(directory,'local-service-token.json'),'utf8')).token;
     assert.equal((await request('GET','/api/state',null,null,'Bearer '+localToken)).status,200);
     assert.equal((await request('GET','/api/state',null,null,'Bearer wrong')).status,401);

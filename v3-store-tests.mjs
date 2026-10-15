@@ -12,7 +12,7 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
   const filename=path.join(directory,'state.sqlite');
   try{
     let store=openV3Store(filename);
-    assert.equal(store.schemaVersion,3);
+    assert.equal(store.schemaVersion,4);
     const complete=randomUUID(),interrupted=randomUUID();
     store.begin(complete,'discover');store.stage(complete,'scout');store.finish(complete,'complete','scout');
     store.begin(interrupted,'build');store.stage(interrupted,'builder');
@@ -54,6 +54,23 @@ test('local accounts hash passwords, expire sessions and isolate profile rows',a
     assert.deepEqual(store.loadProfile(member.id).profile.domains,['embedded_systems']);
     store.destroySession(token);
     assert.equal(store.authenticate(token),null);
+  }finally{store.close();await rm(directory,{recursive:true,force:true});}
+});
+
+test('saved and dismissed research feedback stays scoped to one account',async()=>{
+  const directory=await mkdtemp(path.join(os.tmpdir(),'forge-v3-feedback-'));
+  const store=openV3Store(path.join(directory,'feedback.sqlite'));
+  try{
+    const first=store.createUser('one@example.test','a-long-owner-password','owner');
+    const second=store.createUser('two@example.test','another-long-password');
+    const url='https://openalex.org/W12345';
+    store.saveFeedback(first.id,url,'saved');
+    assert.equal(store.listFeedback(second.id).length,0);
+    store.saveFeedback(first.id,url,'dismissed','too costly');
+    assert.deepEqual(store.listFeedback(first.id).map(item=>item.reason),['too costly']);
+    assert.equal(store.deleteFeedback(second.id,url),0);
+    assert.equal(store.deleteFeedback(first.id,url),1);
+    assert.throws(()=>store.saveFeedback(first.id,'http://localhost/private','saved'));
   }finally{store.close();await rm(directory,{recursive:true,force:true});}
 });
 

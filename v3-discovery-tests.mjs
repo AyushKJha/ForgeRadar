@@ -21,3 +21,9 @@ test('publication date stays distinct from retrieval and ranking admits uncertai
   assert.equal(item.ranking.weights.domain,30);assert.equal(item.ranking.factors.originality,20);
   assert.match(item.ranking.uncertainty.join(' '),/Originality not verified/);
 });
+test('mode selection changes weights and challenge mode has no invented opportunities',()=>{
+  const profile={domains:['cybersecurity'],excludedDomains:[],goal:'research'};
+  const research=recommend([record('Cybersecurity vulnerability detection','W9')],profile,{mode:'research'});
+  assert.equal(research[0].ranking.weights.originality,25);
+  assert.equal(recommend([record('Cybersecurity vulnerability detection','W9')],profile,{mode:'challenge'}).length,0);
+});
