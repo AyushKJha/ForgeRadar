@@ -1,4 +1,21 @@
 const $=selector=>document.querySelector(selector),form=$('#profileForm'),notice=$('#profileNotice');
+$('#loadDiscovery').addEventListener('click',async()=>{
+  const status=$('#discoveryStatus'),results=$('#discoveryResults');status.textContent='Checking locally cached research…';results.replaceChildren();
+  try{
+    const params=new URLSearchParams({mode:$('#discoveryMode').value,adjacent:String($('#adjacentMode').checked)});
+    const data=await request(`discovery?${params}`);
+    status.textContent=data.profileRequired?'Select and save at least one domain first.':data.items.length?`${data.items.length} matched source${data.items.length===1?'':'s'} · ${data.sourceCount} cached research records · last refresh ${data.lastRefresh||'never'}`:`No matching research sources yet. ${data.sourceCount?'Try different selected domains or review source settings in the owner workshop.':'Enable and refresh a research source in the owner workshop.'}`;
+    for(const item of data.items){
+      const card=document.createElement('article'),title=document.createElement('h3'),description=document.createElement('p'),metadata=document.createElement('p'),link=document.createElement('a'),why=document.createElement('p'),score=document.createElement('p');
+      card.className='v3-result';title.textContent=item.sourceTitle;description.textContent=item.excerpt||'No abstract was supplied by this source.';
+      metadata.className='muted';metadata.textContent=`${item.provider} · published ${item.publishedAt||'unknown'} · retrieved ${item.retrievedAt||'unknown'} · ${item.status} · ${item.freshness}`;
+      link.href=item.canonicalUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Open original source';
+      why.textContent=`Why this matches: ${item.whyThisMatches}${item.adjacent?' (adjacent, opt-in)':''}`;
+      score.textContent=`Heuristic fit ${item.ranking.score}/100 (domain ${item.ranking.factors.domain}, usefulness ${item.ranking.factors.usefulness}, career ${item.ranking.factors.career}, feasibility ${item.ranking.factors.feasibility}, originality ${item.ranking.factors.originality}). Originality is unverified.`;
+      card.append(title,metadata,description,why,score,link);results.append(card);
+    }
+  }catch(error){status.textContent=error.message;}
+});
 const request=async(route,options={})=>{const response=await fetch('/api/account/'+route,options);const result=await response.json();if(!response.ok)throw new Error(result.error||'Request failed');return result;};
 const comma=value=>String(value||'').split(',').map(item=>item.trim()).filter(Boolean);
 const lines=value=>String(value||'').split(/\r?\n/).map(item=>item.trim()).filter(Boolean);

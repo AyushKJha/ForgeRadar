@@ -12,6 +12,7 @@ import {openApp} from './app-kit.mjs';
 import {validateProfile,domains} from './v3-profile.mjs';
 import {previewResume} from './resume-parser.mjs';
 import {previewGithubPortfolio} from './portfolio-import.mjs';
+import {recommend} from './v3-discovery.mjs';
 export const defaults={career:25,problem:20,adoption:15,trend:10,learning:10,feasibility:10,gap:5,novelty:5};
 export function score(metrics,weights=defaults){const total=Object.values(weights).reduce((a,b)=>a+b,0);return total?Math.round(Object.keys(defaults).reduce((a,k)=>a+(metrics[k]||0)*(weights[k]||0),0)/total):0;}
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,13 @@ if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie','forge_local=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
 if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{user:account,profile:jobStore.loadProfile(account.id)});}
+if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
+ if(!account)return send(401,{error:'Sign in first'});
+ const profile=jobStore.loadProfile(account.id)?.profile;
+ const mode=url.searchParams.get('mode')||'focused';
+ const adjacent=url.searchParams.get('adjacent')==='true';
+ return send(200,{items:recommend(state.research.records,profile,{mode,adjacent}),sourceHealth:state.research.health,lastRefresh:state.research.lastRefresh,sourceCount:state.research.records.length,profileRequired:!profile?.domains?.length});
+}
 if(url.pathname==='/api/account/resume-preview'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method!=='POST')return send(405,{error:'Method not allowed'});

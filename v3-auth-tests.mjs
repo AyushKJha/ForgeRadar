@@ -31,6 +31,10 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal(saved.status,200);
     assert.deepEqual((await request('GET','/api/account/profile',null,memberCookie)).body.profile.domains,['cybersecurity']);
     assert.equal((await request('GET','/api/account/profile',null,ownerCookie)).body.profile,null);
+    assert.equal((await request('GET','/api/account/discovery')).status,401);
+    const memberDiscovery=await request('GET','/api/account/discovery?mode=focused',null,memberCookie);
+    assert.equal(memberDiscovery.status,200);assert.equal(memberDiscovery.body.profileRequired,false);assert.deepEqual(memberDiscovery.body.items,[]);
+    assert.equal((await request('GET','/api/account/discovery?mode=invalid',null,memberCookie)).status,400);
     const localToken=JSON.parse(await readFile(path.join(directory,'local-service-token.json'),'utf8')).token;
     assert.equal((await request('GET','/api/state',null,null,'Bearer '+localToken)).status,200);
     assert.equal((await request('GET','/api/state',null,null,'Bearer wrong')).status,401);
