@@ -13,6 +13,7 @@ import {validateProfile,domains} from './v3-profile.mjs';
 import {previewResume} from './resume-parser.mjs';
 import {previewGithubPortfolio} from './portfolio-import.mjs';
 import {recommend,relatedWork} from './v3-discovery.mjs';
+import {validateProposal,validateTask} from './v3-projects.mjs';
 export const defaults={career:25,problem:20,adoption:15,trend:10,learning:10,feasibility:10,gap:5,novelty:5};
 export function score(metrics,weights=defaults){const total=Object.values(weights).reduce((a,b)=>a+b,0);return total?Math.round(Object.keys(defaults).reduce((a,k)=>a+(metrics[k]||0)*(weights[k]||0),0)/total):0;}
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -88,6 +89,25 @@ if(url.pathname==='/api/account/appearance'){
  if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>300)return send(413,{error:'Settings too large'});}const body=JSON.parse(raw||'{}');
  return send(200,jobStore.saveAppearance(account.id,body.theme,body.reducedMotion));
+}
+if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]{36}(?:\/(?:approve|tasks)(?:\/[a-f0-9-]{36})?)?$/.test(url.pathname)){
+ if(!account)return send(401,{error:'Sign in first'});
+ const parts=url.pathname.split('/'),projectId=parts[4],sub=parts[5],taskId=parts[6];
+ if(req.method==='GET'){
+   if(!projectId)return send(200,{projects:jobStore.projects(account.id)});
+   const project=jobStore.project(account.id,projectId);if(!project)return send(404,{error:'Project unavailable'});
+   if(sub==='tasks')return send(200,{tasks:jobStore.tasks(account.id,projectId)});
+   return send(200,{project});
+ }
+ if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>6000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
+ if(!projectId&&req.method==='POST')return send(200,{project:jobStore.createProject(account.id,validateProposal(body,{sourceUrls:state.research.records.map(item=>item.canonicalUrl)}))});
+ const project=jobStore.project(account.id,projectId);if(!project)return send(404,{error:'Project unavailable'});
+ if(!sub&&req.method==='PATCH')return send(200,{project:jobStore.editProject(account.id,projectId,validateProposal({...project,...body},{sourceUrls:[...state.research.records.map(item=>item.canonicalUrl),project.sourceUrl].filter(Boolean)}))});
+ if(sub==='approve'&&req.method==='POST'){if(body.confirm!==true)return send(400,{error:'Explicit proposal approval is required'});return send(200,{project:jobStore.approveProject(account.id,projectId)});}
+ if(sub==='tasks'&&!taskId&&req.method==='POST'){if(project.status!=='approved')return send(409,{error:'Approve the project proposal before adding tasks'});return send(200,{task:jobStore.createTask(account.id,projectId,validateTask(body))});}
+ if(sub==='tasks'&&taskId){const current=jobStore.tasks(account.id,projectId).find(item=>item.id===taskId);if(!current)return send(404,{error:'Task unavailable'});if(req.method==='PATCH')return send(200,{task:jobStore.updateTask(account.id,projectId,taskId,validateTask({...current,...body}))});if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteTask(account.id,projectId,taskId)});}
+ return send(405,{error:'Method not allowed'});
 }
 if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
  if(!account)return send(401,{error:'Sign in first'});

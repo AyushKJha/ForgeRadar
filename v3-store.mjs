@@ -70,7 +70,34 @@ const migrations=[
     theme TEXT NOT NULL CHECK(theme IN ('nebula','sunset')),
     reduced_motion INTEGER NOT NULL CHECK(reduced_motion IN (0,1)),
     updated_at TEXT NOT NULL
-  );`
+  );`,
+  `CREATE TABLE IF NOT EXISTS v3_projects (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    problem TEXT NOT NULL,
+    goal TEXT NOT NULL,
+    success_metric TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    source_url TEXT,
+    status TEXT NOT NULL CHECK(status IN ('proposal','approved')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS v3_projects_owner ON v3_projects(user_id,updated_at DESC);
+  CREATE TABLE IF NOT EXISTS v3_tasks (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES v3_projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    acceptance TEXT NOT NULL,
+    evidence TEXT,
+    status TEXT NOT NULL CHECK(status IN ('todo','in_progress','review','blocked','done')),
+    priority TEXT NOT NULL CHECK(priority IN ('low','medium','high')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS v3_tasks_project ON v3_tasks(project_id,created_at);`
 ];
 
 export function openV3Store(filename){
@@ -117,6 +144,16 @@ export function openV3Store(filename){
   const deleteFeedback=db.prepare('DELETE FROM discovery_feedback WHERE user_id=? AND canonical_url=?');
   const appearanceByUser=db.prepare('SELECT theme,reduced_motion AS reducedMotion,updated_at AS updatedAt FROM user_appearance WHERE user_id=?');
   const upsertAppearance=db.prepare('INSERT INTO user_appearance (user_id,theme,reduced_motion,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET theme=excluded.theme,reduced_motion=excluded.reduced_motion,updated_at=excluded.updated_at');
+  const insertProject=db.prepare("INSERT INTO v3_projects (id,user_id,title,problem,goal,success_metric,scope,source_url,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,'proposal',?,?)");
+  const projectById=db.prepare('SELECT id,user_id AS userId,title,problem,goal,success_metric AS successMetric,scope,source_url AS sourceUrl,status,created_at AS createdAt,updated_at AS updatedAt FROM v3_projects WHERE id=? AND user_id=?');
+  const projectsByUser=db.prepare('SELECT id,user_id AS userId,title,problem,goal,success_metric AS successMetric,scope,source_url AS sourceUrl,status,created_at AS createdAt,updated_at AS updatedAt FROM v3_projects WHERE user_id=? ORDER BY updated_at DESC');
+  const updateProject=db.prepare("UPDATE v3_projects SET title=?,problem=?,goal=?,success_metric=?,scope=?,updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
+  const approveProject=db.prepare("UPDATE v3_projects SET status='approved',updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
+  const insertTask=db.prepare("INSERT INTO v3_tasks (id,project_id,title,description,acceptance,evidence,status,priority,created_at,updated_at) VALUES (?,?,?,?,?,NULL,'todo',?,?,?)");
+  const taskById=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE id=? AND project_id=?');
+  const tasksByProject=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE project_id=? ORDER BY created_at');
+  const updateTask=db.prepare('UPDATE v3_tasks SET title=?,description=?,acceptance=?,evidence=?,status=?,priority=?,updated_at=? WHERE id=? AND project_id=?');
+  const deleteTask=db.prepare('DELETE FROM v3_tasks WHERE id=? AND project_id=?');
   const tokenHash=token=>createHash('sha256').update(token).digest('hex');
   return {
     schemaVersion:migrations.length,
@@ -156,6 +193,15 @@ export function openV3Store(filename){
     deleteFeedback(userId,canonicalUrl){return Number(deleteFeedback.run(userId,canonicalUrl).changes);},
     appearance(userId){const item=appearanceByUser.get(userId);return item?{theme:item.theme,reducedMotion:Boolean(item.reducedMotion),updatedAt:item.updatedAt}:{theme:'nebula',reducedMotion:false,updatedAt:null};},
     saveAppearance(userId,theme,reducedMotion){if(!['nebula','sunset'].includes(theme)||typeof reducedMotion!=='boolean')throw new Error('Invalid appearance settings');upsertAppearance.run(userId,theme,Number(reducedMotion),new Date().toISOString());return this.appearance(userId);},
+    createProject(userId,input){const now=new Date().toISOString(),id=randomUUID();insertProject.run(id,userId,input.title,input.problem,input.goal,input.successMetric,input.scope,input.sourceUrl||null,now,now);return projectById.get(id,userId);},
+    project(userId,id){return projectById.get(id,userId)||null;},
+    projects(userId){return projectsByUser.all(userId);},
+    editProject(userId,id,input){if(!updateProject.run(input.title,input.problem,input.goal,input.successMetric,input.scope,new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return projectById.get(id,userId);},
+    approveProject(userId,id){if(!approveProject.run(new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return projectById.get(id,userId);},
+    createTask(userId,projectId,input){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');const now=new Date().toISOString(),id=randomUUID();insertTask.run(id,projectId,input.title,input.description,input.acceptance,input.priority,now,now);return taskById.get(id,projectId);},
+    tasks(userId,projectId){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return tasksByProject.all(projectId);},
+    updateTask(userId,projectId,id,input){if(!projectById.get(projectId,userId)||!taskById.get(id,projectId))throw new Error('Task unavailable');updateTask.run(input.title,input.description,input.acceptance,input.evidence||null,input.status,input.priority,new Date().toISOString(),id,projectId);return taskById.get(id,projectId);},
+    deleteTask(userId,projectId,id){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return Number(deleteTask.run(id,projectId).changes);},
     putCache(key,provider,payload,ttlMs,etag=null){if(!/^[a-z0-9:_/-]{1,180}$/i.test(key)||!/^[a-z0-9_-]{1,40}$/i.test(provider)||!Number.isFinite(ttlMs)||ttlMs<1000||ttlMs>604800000)throw new Error('Invalid cache entry');const json=JSON.stringify(payload);if(json.length>1000000)throw new Error('Cache entry too large');const now=Date.now();putCache.run(key,provider,json,new Date(now).toISOString(),new Date(now+ttlMs).toISOString(),etag);},
     getCache(key,{allowStale=false}={}){const row=getCache.get(key);if(!row||(!allowStale&&Date.parse(row.expiresAt)<=Date.now()))return null;return {...row,payload:JSON.parse(row.payload),stale:Date.parse(row.expiresAt)<=Date.now()};},
     close(){db.close();}

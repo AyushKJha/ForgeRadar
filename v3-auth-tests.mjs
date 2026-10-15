@@ -47,6 +47,18 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal((await request('POST','/api/account/battle',{urls:['https://openalex.org/W123','https://openalex.org/W124']},memberCookie)).status,200);
     assert.equal((await request('POST','/api/account/discovery-feedback',{canonicalUrl:'https://openalex.org/W123',status:'dismissed',reason:'too common'},memberCookie)).status,200);
     assert.deepEqual((await request('GET','/api/account/discovery',null,memberCookie)).body.items.map(item=>item.canonicalUrl),['https://openalex.org/W124']);
+    const proposal={title:'Malware risk explorer',problem:'Investigate malware risks with user-supplied fixtures',goal:'Explain findings locally',successMetric:'Identify three known fixture cases',scope:'Local import, scan and report',sourceUrl:'https://openalex.org/W124'};
+    const created=await request('POST','/api/account/projects',proposal,memberCookie);assert.equal(created.status,200);
+    const projectId=created.body.project.id;
+    assert.equal((await request('GET',`/api/account/projects/${projectId}`,null,ownerCookie)).status,404);
+    assert.equal((await request('POST',`/api/account/projects/${projectId}/tasks`,{title:'Parse fixture',description:'Write local parser',acceptance:'Three cases pass'},memberCookie)).status,409);
+    assert.equal((await request('POST',`/api/account/projects/${projectId}/approve`,{},memberCookie)).status,400);
+    assert.equal((await request('POST',`/api/account/projects/${projectId}/approve`,{confirm:true},memberCookie)).status,200);
+    const task=await request('POST',`/api/account/projects/${projectId}/tasks`,{title:'Parse fixture',description:'Write local parser',acceptance:'Three cases pass'},memberCookie);assert.equal(task.status,200);
+    const taskId=task.body.task.id;
+    assert.equal((await request('PATCH',`/api/account/projects/${projectId}/tasks/${taskId}`,{status:'done'},memberCookie)).status,400);
+    assert.equal((await request('PATCH',`/api/account/projects/${projectId}/tasks/${taskId}`,{status:'done',evidence:'Human sign-off after fixture review'},memberCookie)).status,200);
+    assert.equal((await request('GET',`/api/account/projects/${projectId}/tasks`,null,memberCookie)).body.tasks[0].status,'done');
     const localToken=JSON.parse(await readFile(path.join(directory,'local-service-token.json'),'utf8')).token;
     assert.equal((await request('GET','/api/state',null,null,'Bearer '+localToken)).status,200);
     assert.equal((await request('GET','/api/state',null,null,'Bearer wrong')).status,401);
