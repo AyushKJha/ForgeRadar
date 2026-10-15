@@ -18,3 +18,17 @@ main{width:calc(100% - 206px);padding:28px 34px 30px;max-width:1700px}header{pad
 @media(max-width:1150px){.dashboard-workspace{grid-template-columns:minmax(0,1fr)}.workspace-context{display:none}}
 @media(max-width:760px){.hero-copy{padding:26px}.hero-copy h2{font-size:37px}.cosmic-scene .planet{top:14px;width:205px;height:205px}.cosmic-scene .label-three{top:157px}.dashboard-workspace{margin-bottom:24px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* Eclipse combines cosmic teal, violet nebula and warm sunset light. */
+:root[data-theme=eclipse]{--bg:#080c16;--panel:#101723;--panel-raised:#1b2032;--line:#343447;--muted:#b4b2c8;--ink:#f4f2f8;--accent:#ffb47e;--glow:#ac7aff;--space:#302348}
+:root[data-theme=eclipse] body{background:radial-gradient(ellipse at 95% 0%,#62395155,transparent 39%),radial-gradient(ellipse at 40% 35%,#26315b44,transparent 58%),#080c16}
+:root[data-theme=eclipse] .cosmic-hero{background:radial-gradient(ellipse at 91% 75%,#bb63313b,transparent 48%),radial-gradient(ellipse at 70% 20%,#673f8555,transparent 53%),linear-gradient(115deg,#0b1d24,#171529 60%,#29202c)}
+:root[data-theme=eclipse] .hero-copy em{background:linear-gradient(100deg,#96ead6,#c2a0ff 52%,#ffb47e);color:transparent;background-clip:text}
+:root[data-theme=eclipse] .planet{background:radial-gradient(circle at 69% 72%,#040911 22%,transparent 67%),repeating-radial-gradient(ellipse at 20% 60%,#ffffff0c 0 2px,transparent 3px 13px),conic-gradient(from 215deg at 36% 30%,#143844,#7a58ac,#e99767,#244c57,#143844);box-shadow:inset 7px 3px 12px #c4f5e866,inset -25px -20px 50px #000b,-12px -4px 38px #9d69f326,15px 15px 48px #ff9a5c18}
+:root[data-theme=eclipse] .brand-mark,:root[data-theme=eclipse] nav .active,:root[data-theme=eclipse] .glyph{color:#9ce8d5}
+:root[data-theme=eclipse] nav .active{background:linear-gradient(105deg,#163330,#252039);border-color:#38514e}
+:root[data-theme=eclipse] .summary>div:nth-child(2){background:linear-gradient(125deg,#30203e,#131b27)}
+:root[data-theme=eclipse] .summary>div:nth-child(3){border-top-color:#9ce8d5}
+:root[data-theme=eclipse] .workspace-context{background:linear-gradient(155deg,#25213a,#13232c 65%,#2a2126)}
+:root[data-theme=eclipse] .scene-label{border-color:#836c8a55;color:#ddc5f6}
+:root[data-theme=eclipse] .label-one{color:#9ce8d5}:root[data-theme=eclipse] .label-three{color:#ffbc8f}
