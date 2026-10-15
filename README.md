@@ -38,6 +38,8 @@ The local V3 screen also offers explicit OpenAlex/Crossref research refreshes ba
 
 For approved proposals, **Suggest tasks with local model** asks the installed Ollama model for at most five review-only tasks. No task is inserted until you accept it. The planner pauses when less than 1.2 GiB system RAM is free, and manual tasks continue to work without Ollama. Run `node smoke-local-planner.mjs` for an optional disposable local-model integration check; it never touches the live account database.
 
+For other authorized devices, see [private remote access](docs/PRIVATE_REMOTE_ACCESS.md). Tailscale Serve application support is prepared but not activated; the app remains loopback-only and cross-device V3 access has not yet been verified.
+
 Résumé preview parses PDF or DOCX locally and deletes the temporary uploaded file immediately. It offers editable suggestions with source lines; it never silently saves them or treats CV claims as verified skills. Install Python 3 and the free packages with `python -m pip install pypdf python-docx` on a clean laptop. Set `FORGERADAR_PYTHON` to the Python executable when it is not on PATH. Manual onboarding works without Python. The parser rejects files over 6 MB, encrypted/active PDFs and macro or oversized DOCX archives. Scanned image PDFs need manual entry.
 
 Run `./install-worker.ps1` once on Windows to install the current-user startup shortcut and recovery supervisor. It starts at Windows sign-in and checks the engine, model and bridge every 30 seconds. Remove **ForgeRadar Worker.lnk** from your Startup folder to disable automatic startup. This installation uses no administrator privilege and does not run while Windows is off.

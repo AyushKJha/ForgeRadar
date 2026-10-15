@@ -18,6 +18,8 @@ import {normalizeSuggestedTasks} from './v3-task-planner.mjs';
 export const defaults={career:25,problem:20,adoption:15,trend:10,learning:10,feasibility:10,gap:5,novelty:5};
 export function score(metrics,weights=defaults){const total=Object.values(weights).reduce((a,b)=>a+b,0);return total?Math.round(Object.keys(defaults).reduce((a,k)=>a+(metrics[k]||0)*(weights[k]||0),0)/total):0;}
 const root=path.dirname(fileURLToPath(import.meta.url));
+const privateTailnetHost=String(process.env.FORGERADAR_TAILSCALE_HOST||'').toLowerCase();
+if(privateTailnetHost&&!/^[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+\.ts\.net$/.test(privateTailnetHost))throw new Error('FORGERADAR_TAILSCALE_HOST must be an exact *.ts.net hostname');
 const data=process.env.FORGERADAR_DATA_DIR?path.resolve(process.env.FORGERADAR_DATA_DIR):path.join(root,'data');
 let state={opportunities:[],signals:[],projects:[],runs:[],weights:defaults,model:'',lastRefresh:null};
 await mkdir(data,{recursive:true});
@@ -61,7 +63,12 @@ const runtime=createOrchestrator({state,root,persist,refresh,models,jsonFetch,sc
 const applications=new Map();
 async function applicationRequest(id,operation){const project=state.projects.find(p=>p.id===id&&p.buildMode==='fullstack'&&p.appSpec);if(!project)throw new Error('Application not found');let application=applications.get(id);const signature=JSON.stringify(project.appSpec);if(application?.signature!==signature){application?.service.close();application={signature,service:openApp(project.appSpec,path.join(root,'projects',id,'data/app.sqlite'))};applications.set(id,application);}return application.service.request(operation);}
 export const server=http.createServer(async(req,res)=>{try{
-if(![`127.0.0.1:${process.env.PORT||4317}`,`localhost:${process.env.PORT||4317}`].includes(req.headers.host)){res.writeHead(403);res.end('Unknown local host');return;}
+const hostHeader=String(req.headers.host||'').toLowerCase();
+const localHosts=[`127.0.0.1:${process.env.PORT||4317}`,`localhost:${process.env.PORT||4317}`];
+const loopbackPeer=['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+const fromTailnet=Boolean(privateTailnetHost&&loopbackPeer&&(hostHeader===privateTailnetHost||localHosts.includes(hostHeader)&&req.headers['x-forwarded-host']===privateTailnetHost&&req.headers['x-forwarded-proto']==='https'));
+if(!localHosts.includes(hostHeader)&&!fromTailnet){res.writeHead(403);res.end('Unknown local host');return;}
+const requestOrigin=fromTailnet?`https://${privateTailnetHost}`:`http://${hostHeader}`;
 const url=new URL(req.url,'http://localhost');
 const send=(code,obj)=>{res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(obj));};
 const sessionToken=req.headers.cookie?.match(/(?:^|; )forge_local=([a-f0-9]{64})(?:;|$)/)?.[1];
@@ -71,24 +78,24 @@ const bridgeAuthorized=Boolean(localBridgeToken&&supplied.length===localBridgeTo
 if(url.pathname==='/api/account/session'&&req.method==='GET')return send(200,{authenticated:!!account,user:account,setupRequired:jobStore.userCount()===0});
 if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
  if(req.method!=='POST')return send(405,{error:'Method not allowed'});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Request too large'});}
  const body=JSON.parse(raw||'{}');
  let user;
  if(url.pathname.endsWith('/register'))user=jobStore.createUser(body.email,body.password,jobStore.userCount()===0?'owner':'member');
  else {const key=`${req.socket.remoteAddress}:${String(body.email||'').toLowerCase()}`;const prior=loginAttempts.get(key);if(prior&&prior.count>=8&&Date.now()-prior.at<600000)return send(429,{error:'Too many sign-in attempts. Try again in ten minutes.'});user=jobStore.verifyUser(body.email,body.password);if(!user){loginAttempts.set(key,{at:prior&&Date.now()-prior.at<600000?prior.at:Date.now(),count:prior&&Date.now()-prior.at<600000?prior.count+1:1});return send(401,{error:'Incorrect email or password'});}loginAttempts.delete(key);}
  const token=jobStore.createSession(user.id);
- res.setHeader('Set-Cookie',`forge_local=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200`);
+ res.setHeader('Set-Cookie',`forge_local=${token}; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=43200`);
  return send(200,{authenticated:true,user});
 }
-if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie','forge_local=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
+if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie',`forge_local=; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=0`);return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
 if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});const projects=jobStore.projects(account.id);return send(200,{user:account,profile:jobStore.loadProfile(account.id),appearance:jobStore.appearance(account.id),discoveryFeedback:jobStore.listFeedback(account.id),projects:projects.map(project=>({...project,tasks:jobStore.tasks(account.id,project.id)}))});}
 if(url.pathname==='/api/account/appearance'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method==='GET')return send(200,jobStore.appearance(account.id));
  if(req.method!=='POST')return send(405,{error:'Method not allowed'});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>300)return send(413,{error:'Settings too large'});}const body=JSON.parse(raw||'{}');
  return send(200,jobStore.saveAppearance(account.id,body.theme,body.reducedMotion));
 }
@@ -101,7 +108,7 @@ if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]
    if(sub==='tasks')return send(200,{tasks:jobStore.tasks(account.id,projectId)});
    return send(200,{project});
  }
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>6000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
  if(!projectId&&req.method==='POST')return send(200,{project:jobStore.createProject(account.id,validateProposal(body,{sourceUrls:state.research.records.map(item=>item.canonicalUrl)}))});
  const project=jobStore.project(account.id,projectId);if(!project)return send(404,{error:'Project unavailable'});
@@ -143,7 +150,7 @@ if(url.pathname==='/api/account/related'&&req.method==='GET'){
 }
 if(url.pathname==='/api/account/research-refresh'&&req.method==='POST'){
  if(!account)return send(401,{error:'Sign in first'});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  const profile=jobStore.loadProfile(account.id)?.profile;
  if(!profile?.domains?.length)return send(400,{error:'Save at least one selected domain first'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
@@ -163,7 +170,7 @@ if(url.pathname==='/api/account/research-refresh'&&req.method==='POST'){
 if(url.pathname==='/api/account/discovery-feedback'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method==='GET')return send(200,{items:jobStore.listFeedback(account.id)});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>1200)return send(413,{error:'Feedback too long'});}const body=JSON.parse(raw||'{}');
  if(!state.research.records.some(item=>item.canonicalUrl===body.canonicalUrl))return send(404,{error:'Research source unavailable'});
  if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteFeedback(account.id,body.canonicalUrl)});
@@ -172,7 +179,7 @@ if(url.pathname==='/api/account/discovery-feedback'){
 }
 if(url.pathname==='/api/account/battle'&&req.method==='POST'){
  if(!account)return send(401,{error:'Sign in first'});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>3200)return send(413,{error:'Comparison too large'});}const body=JSON.parse(raw||'{}');
  if(!Array.isArray(body.urls)||body.urls.length<2||body.urls.length>5||new Set(body.urls).size!==body.urls.length)return send(400,{error:'Compare 2 to 5 different saved sources'});
  const saved=new Set(jobStore.listFeedback(account.id).filter(item=>item.status==='saved').map(item=>item.canonicalUrl));
@@ -184,21 +191,21 @@ if(url.pathname==='/api/account/battle'&&req.method==='POST'){
 if(url.pathname==='/api/account/resume-preview'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method!=='POST')return send(405,{error:'Method not allowed'});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8_200_000)return send(413,{error:'Résumé exceeds the 6 MB file limit'});}
  const body=JSON.parse(raw||'{}');return send(200,await previewResume(body,data));
 }
 if(url.pathname==='/api/account/portfolio-preview'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method!=='POST')return send(405,{error:'Method not allowed'});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>2000)return send(413,{error:'Portfolio URL is too long'});}
  const body=JSON.parse(raw||'{}');return send(200,await previewGithubPortfolio(body.url,{cache:jobStore}));
 }
 if(url.pathname==='/api/account/profile'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method==='GET')return send(200,jobStore.loadProfile(account.id)||{profile:null});
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
  if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteProfile(account.id)});
  if(req.method==='POST'){let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>24000)return send(413,{error:'Profile too large'});}const body=JSON.parse(raw||'{}');if(body.consent!==true)return send(400,{error:'Consent is required before saving a private profile'});return send(200,jobStore.saveProfile(account.id,validateProfile(body.profile),true));}
  return send(405,{error:'Method not allowed'});
@@ -220,7 +227,7 @@ if(req.method==='GET'&&url.pathname.startsWith('/preview/')){const parts=url.pat
 if(req.method==='GET'&&url.pathname==='/api/state')return send(200,{...state,busy});
 if(req.method==='GET'&&url.pathname==='/api/models')return send(200,await models());
 if(req.method==='POST'){
- if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});
+ if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});
 let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>32000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
 if(url.pathname==='/api/app')return send(200,await applicationRequest(body.projectId,body.operation));
 if(/^\/apps\/[-a-f0-9]{36}\/api$/.test(url.pathname))return send(200,await applicationRequest(url.pathname.split('/')[2],body));
