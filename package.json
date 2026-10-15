@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests.mjs remote-tests.mjs app-kit-tests.mjs v3-store-tests.mjs"
+    "test": "node --test tests.mjs remote-tests.mjs app-kit-tests.mjs v3-store-tests.mjs research-sources-tests.mjs"
   },
   "engines": {
     "node": ">=24"

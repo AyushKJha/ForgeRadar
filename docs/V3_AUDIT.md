@@ -77,3 +77,7 @@ The project has no npm dependencies; Node 24+ is required for local SQLite. The 
 | Tailscale Personal | Candidate private-device access | Eligibility and current free-device limits must be verified before setup | Yes | VPN metadata and routed traffic | Optional |
 
 No paid API, database, analytics service or domain is required by the current local app. New V3 capabilities must retain this property.
+
+## Research connector review (2026-10-15)
+
+OpenAlex's [current API reference](https://help.openalex.org/api/) permits basic keyless queries and describes a free daily budget; a free key is optional for larger use. Crossref's [REST API guidance](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api) says to cache results and back off on HTTP 429; its [public API documentation](https://github.com/CrossRef/rest-api-doc) describes the free public pool and response rate-limit headers. V3 currently implements only bounded, opt-in OpenAlex and Crossref metadata queries (five results per provider/query, 24-hour local cache). It never asks for paid access. arXiv and additional connectors remain disabled until their current access rules and integration are verified. These research records are evidence, not AI-generated project proposals, and retain distinct publication and retrieval dates.

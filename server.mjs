@@ -1,6 +1,7 @@
 import http from 'node:http';
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {openV3Store} from './v3-store.mjs';
+import {collectResearch} from './research-sources.mjs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -14,6 +15,7 @@ const data=path.join(root,'data');
 let state={opportunities:[],signals:[],projects:[],runs:[],weights:defaults,model:'',lastRefresh:null};
 await mkdir(data,{recursive:true});
 try{state={...state,...JSON.parse(await readFile(path.join(data,'state.json'),'utf8'))};}catch(e){if(e.code!=='ENOENT')throw e;}
+state.research??={enabled:[],query:'',records:[],health:[],lastRefresh:null};
 let writing=Promise.resolve();
 async function persist(){const snapshot=JSON.stringify(state,null,2);writing=writing.catch(()=>{}).then(async()=>{const temporary=path.join(data,'state.json.tmp');await writeFile(temporary,snapshot);await rename(temporary,path.join(data,'state.json'));});return writing;}
 async function jsonFetch(url,options={}){const response=await fetch(url,{...options,signal:options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(options.timeout||15000)]):AbortSignal.timeout(options.timeout||15000)});if(!response.ok)throw new Error(`Source returned HTTP ${response.status}`);return response.json();}
@@ -66,6 +68,17 @@ if(url.pathname==='/api/cancel')return send(200,runtime.cancel());
 if(url.pathname==='/api/chat'){if(typeof body.text!=='string'||!body.text.trim()||body.text.length>8000)return send(400,{error:'Enter an instruction up to 8,000 characters'});if(body.commandId){if(!/^[-a-zA-Z0-9]{8,100}$/.test(body.commandId))return send(400,{error:'Invalid command ID'});const receipt=state.commandReceipts?.find(r=>r.id===body.commandId);if(receipt)return send(200,receipt);}if(busy||runtime.active())return send(409,{error:'A mission is running. Follow its progress before sending the next instruction.'});return send(202,runtime.launch('prompt',body.text,body.commandId));}
 if(url.pathname==='/api/mission'){if(busy||runtime.active())return send(409,{error:'An agent mission is already running'});if(!['discover','build','sync','daily'].includes(body.kind))return send(400,{error:'Unknown mission'});if(body.kind==='build'){const candidate=state.opportunities.find(o=>o.id===body.id);if(!candidate)return send(404,{error:'Proposal unavailable'});candidate.buildMode=body.buildMode==='prototype'?'prototype':'fullstack';}return send(202,runtime.launch(body.kind,body.id));}
 if(url.pathname==='/api/automation')return send(200,await runtime.configure(body));
+if(url.pathname==='/api/research-settings'){
+ if(!Array.isArray(body.enabled)||body.enabled.some(name=>!['openalex','crossref'].includes(name))||typeof body.query!=='string'||body.query.length>120)return send(400,{error:'Choose supported free sources and a query up to 120 characters'});
+ state.research.enabled=[...new Set(body.enabled)];state.research.query=body.query.trim();await persist();return send(200,state.research);
+}
+if(url.pathname==='/api/research-refresh'){
+ if(busy||runtime.active())return send(409,{error:'A run is already in progress'});
+ if(!state.research.enabled.length)return send(400,{error:'Enable a research source first'});
+ busy=true;
+ try{const result=await collectResearch({query:state.research.query,enabled:state.research.enabled,cache:jobStore});state.research.records=[...new Map([...result.results,...state.research.records].map(item=>[item.canonicalUrl,item])).values()].slice(0,200);state.research.health=result.health;state.research.lastRefresh=new Date().toISOString();await persist();return send(200,{count:result.results.length,health:result.health});}
+ finally{busy=false;}
+}
 if(runtime.active())return send(409,{error:'An agent mission is running; wait until its current handoff completes'});
 if(url.pathname==='/api/import'){if(typeof body.text!=='string'||body.text.length>8000||!body.text.trim())return send(400,{error:'Post text is required, up to 8000 characters'});const postUrl=new URL(body.url);if(!['http:','https:'].includes(postUrl.protocol)||postUrl.username||postUrl.password)return send(400,{error:'Use a public HTTP or HTTPS URL without credentials'});const sources=['Reddit','X / Twitter','Instagram','Other community'];if(!sources.includes(body.source))return send(400,{error:'Unknown source'});const signal={id:'import-'+randomUUID(),source:body.source,title:body.text.slice(0,180),description:body.text,url:postUrl.href,engagement:0,collectedAt:new Date().toISOString(),imported:true};state.imports??=[];state.imports.unshift(signal);state.imports=state.imports.slice(0,100);state.signals.push(signal);await persist();return send(200,{ok:true});}
 if(url.pathname==='/api/refresh'||url.pathname==='/api/analyze'){if(busy)return send(409,{error:'A run is already in progress'});busy=true;try{if(url.pathname==='/api/refresh')return send(200,await refresh());await analyze(body.id);return send(200,{ok:true});}finally{busy=false;}}
