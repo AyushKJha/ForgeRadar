@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {openV3Store} from './v3-store.mjs';
+import {createOrchestrator} from './orchestrator.mjs';
 
 test('additive V3 migration records jobs, survives restart and interrupts unfinished work',async()=>{
   const directory=await mkdtemp(path.join(os.tmpdir(),'forge-v3-store-'));
@@ -25,4 +26,12 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
     assert.throws(()=>store.putCache('../secret','openalex',{},60000));
     store.close();
   }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('scheduler retains the next collection time across engine construction',()=>{
+  const nextCollectAt='2026-10-15T18:30:00.000Z';
+  const state={automation:{enabled:true,autoBuild:false,dailySync:false,intervalMinutes:360,nextCollectAt},opportunities:[],projects:[],signals:[]};
+  const runtime=createOrchestrator({state,root:'unused',persist:async()=>{},refresh:async()=>{},models:async()=>({connected:false,models:[]}),jsonFetch:async()=>{},score:()=>0,proposal:()=>''});
+  try{assert.equal(runtime.status().nextCollect,nextCollectAt);}
+  finally{runtime.stop();}
 });
