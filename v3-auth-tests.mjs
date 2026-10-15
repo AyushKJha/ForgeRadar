@@ -59,6 +59,9 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal((await request('PATCH',`/api/account/projects/${projectId}/tasks/${taskId}`,{status:'done'},memberCookie)).status,400);
     assert.equal((await request('PATCH',`/api/account/projects/${projectId}/tasks/${taskId}`,{status:'done',evidence:'Human sign-off after fixture review'},memberCookie)).status,200);
     assert.equal((await request('GET',`/api/account/projects/${projectId}/tasks`,null,memberCookie)).body.tasks[0].status,'done');
+    const exportData=(await request('GET','/api/account/export',null,memberCookie)).body;
+    assert.equal(exportData.projects[0].tasks[0].status,'done');assert.equal(exportData.discoveryFeedback.length,2);
+    assert.equal((await request('GET','/api/account/export',null,ownerCookie)).body.projects.length,0);
     const localToken=JSON.parse(await readFile(path.join(directory,'local-service-token.json'),'utf8')).token;
     assert.equal((await request('GET','/api/state',null,null,'Bearer '+localToken)).status,200);
     assert.equal((await request('GET','/api/state',null,null,'Bearer wrong')).status,401);

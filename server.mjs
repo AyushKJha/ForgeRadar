@@ -81,7 +81,7 @@ if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
 }
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie','forge_local=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
-if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{user:account,profile:jobStore.loadProfile(account.id)});}
+if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});const projects=jobStore.projects(account.id);return send(200,{user:account,profile:jobStore.loadProfile(account.id),appearance:jobStore.appearance(account.id),discoveryFeedback:jobStore.listFeedback(account.id),projects:projects.map(project=>({...project,tasks:jobStore.tasks(account.id,project.id)}))});}
 if(url.pathname==='/api/account/appearance'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method==='GET')return send(200,jobStore.appearance(account.id));
