@@ -6,8 +6,6 @@ A local agent system for discovering software ideas, evaluating who would use th
 
 Discovery includes **unbuilt community ideas**, unmet needs and improvements to existing tools. A popular existing repository is context, not automatic proof that copying it would be worthwhile. Novelty remains unverified until researched, and a limited search cannot prove that no product exists.
 
-> **[Step-by-step user guide (PDF)](docs/USER_GUIDE.pdf)**
-
 ## Agent circuit
 
 `Scout → Miner → Evaluator → Critic → Proposal → Architect → Builder → QA → GitHub Sync`
@@ -35,6 +33,16 @@ Alternatively, start Ollama separately and run `node server.mjs`.
 Run `./install-worker.ps1` once on Windows to install the current-user startup shortcut and recovery supervisor. It starts at Windows sign-in and checks the engine, model and bridge every 30 seconds. Remove **ForgeRadar Worker.lnk** from your Startup folder to disable automatic startup. This installation uses no administrator privilege and does not run while Windows is off.
 
 Install Ollama from https://ollama.com/download and pull a local model that fits your available memory. The launcher can use an Ollama installation on PATH. Model speed depends on your machine.
+
+### First local session
+
+1. Install Node.js 24+, Git, and Ollama. Pull a model supported by your machine and confirm Ollama can answer locally.
+2. On Windows, launch `./start.ps1`; otherwise start Ollama yourself and run `node server.mjs` from the repository root.
+3. Open http://127.0.0.1:4317 and wait for the engine and model status to become ready.
+4. Use the workshop composer to request discovery or describe an idea. Review the sourced evidence, score, proposal, architecture, and QA results in the circuit.
+5. When a proposal is ready, choose its build mode and explicitly approve it. Inspect the generated files and QA report before syncing; approved generated projects are published to their own private repositories.
+
+The engine uses a local model for its core workflow. Source discovery requires the configured external services to be reachable; X search is disabled unless explicitly configured. New ideas wait for approval, and automated code iterations are disabled in this deployment.
 
 ## Sources
 
