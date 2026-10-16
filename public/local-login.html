@@ -1,1 +1,33 @@
-<!doctype html><html lang="en" data-theme="eclipse"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ForgeRadar · Local sign in</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/design.css"><link rel="stylesheet" href="/v3.css"><script src="/v3-login.js" defer></script></head><body class="auth-page"><main class="panel auth-panel v3-auth"><span class="tag">FORGERADAR / PRIVATE LOCAL WORKSPACE</span><h1>Build what matters.</h1><p>Sign in to your local workspace. Your profile and projects stay on this laptop.</p><form id="accountForm"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" minlength="12" autocomplete="current-password" required></label><button class="primary" type="submit">Sign in</button></form><button id="switchMode" type="button">Create a local account</button><p id="authNotice" role="status" aria-live="polite"></p><p class="muted">Existing owner: use owner@forgeradar.local and your workshop password. New accounts have separate private profiles.</p></main></body></html>
+<!doctype html>
+<html lang="en" data-theme="eclipse">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071413">
+  <title>ForgeRadar · Enter the workshop</title>
+  <link rel="stylesheet" href="/login.css">
+  <script src="/v3-login.js" defer></script>
+</head>
+<body class="entry-page">
+  <div class="entry-atmosphere" aria-hidden="true"><div class="entry-orb"></div><div class="entry-horizon"></div></div>
+  <div class="intro" id="intro" aria-hidden="true">
+    <div class="intro-grid" aria-hidden="true"></div>
+    <div class="intro-content"><div class="intro-symbol" aria-hidden="true"><span></span></div><p class="intro-eyebrow">FORGERADAR / THE IDEA ENGINE</p><h1>Find the signal.<br><em>Build what matters.</em></h1><p class="intro-caption">Discover <span>→</span> Decide <span>→</span> Build</p></div>
+    <button class="intro-skip" id="skipIntro" type="button">Skip intro <span aria-hidden="true">↗</span></button>
+  </div>
+  <header class="entry-header"><a class="entry-brand" href="/" aria-label="ForgeRadar home"><span class="entry-brand-mark" aria-hidden="true">◈</span><span>ForgeRadar</span></a><span class="entry-header-note"><i aria-hidden="true"></i> LOCAL-FIRST WORKSPACE</span></header>
+  <main class="entry-main">
+    <section class="entry-copy" aria-labelledby="entryHeadline"><p class="eyebrow"><span class="eyebrow-line"></span> YOUR IDEAS HAVE A PLACE TO GO</p><h1 id="entryHeadline">From a spark<br>to something <em>real.</em></h1><p class="entry-description">Discover meaningful problems, shape a project, and build it with local AI support. Your work begins here.</p><div class="entry-path" aria-label="How ForgeRadar works"><span><b>01</b> Discover</span><i></i><span><b>02</b> Develop</span><i></i><span><b>03</b> Deliver</span></div></section>
+    <section class="auth-card" id="authCard" data-mode="login" aria-label="Local account access">
+      <div class="auth-window" aria-hidden="true"><span></span><span></span><span></span><p>FORGERADAR / ACCESS PORTAL</p></div>
+      <div class="auth-stage">
+        <div class="auth-face auth-face-login" id="loginFace"><p class="face-kicker">WELCOME BACK</p><h2>Sign in<span class="heading-dot">.</span></h2><p class="face-description">Pick up where your next idea left off.</p><form id="loginForm" autocomplete="on"><label for="loginEmail">Email address</label><input id="loginEmail" name="email" type="email" autocomplete="username" placeholder="you@example.com" required><label for="loginPassword">Password</label><div class="password-wrap"><input id="loginPassword" name="password" type="password" autocomplete="current-password" required><button class="reveal" type="button" aria-label="Show password" aria-pressed="false">Show</button></div><button class="submit-button" type="submit">Enter workshop <span aria-hidden="true">↗</span></button></form><p class="face-switch">New to ForgeRadar? <button id="toRegister" type="button">Create an account</button></p></div>
+        <div class="auth-face auth-face-register" id="registerFace" inert aria-hidden="true"><p class="face-kicker">A NEW BEGINNING</p><h2>Create account<span class="heading-dot">.</span></h2><p class="face-description">A private space for the work you want to make.</p><form id="registerForm" autocomplete="on"><label for="registerEmail">Email address</label><input id="registerEmail" name="email" type="email" autocomplete="username" placeholder="you@example.com" required><label for="registerPassword">Password <small>12 characters minimum</small></label><div class="password-wrap"><input id="registerPassword" name="password" type="password" minlength="12" autocomplete="new-password" required><button class="reveal" type="button" aria-label="Show password" aria-pressed="false">Show</button></div><button class="submit-button" type="submit">Create my workspace <span aria-hidden="true">↗</span></button></form><p class="face-switch">Already have an account? <button id="toLogin" type="button">Sign in</button></p></div>
+        <div class="auth-blade" aria-hidden="true"><div class="blade-noise"></div><div class="blade-eclipse"><div class="blade-core"></div></div><div class="blade-copy blade-copy-login"><span class="blade-index">01 / YOUR WORKSPACE</span><h3>Welcome<br><em>back.</em></h3><p>Your ideas, drafts, and progress are ready where you left them.</p></div><div class="blade-copy blade-copy-register"><span class="blade-index">00 / THE FIRST STEP</span><h3>Start<br><em>something.</em></h3><p>Make room for a new idea. Your private workspace starts here.</p></div><span class="blade-footer">DISCOVER • BUILD • PUBLISH WITH APPROVAL</span></div>
+      </div>
+      <p id="authNotice" class="auth-notice" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <footer class="entry-footer"><span>FORGERADAR © 2026</span><span>Your profile and project data stay on the host computer. Research and publishing use the internet only when you choose them.</span><button id="replayIntro" type="button">Replay intro ↗</button></footer>
+</body>
+</html>
