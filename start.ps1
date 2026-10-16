@@ -4,6 +4,13 @@ $taskProjectDir = $PSScriptRoot
 $taskRuntimeDir = [IO.Path]::GetFullPath((Join-Path $taskProjectDir '../../work/ollama'))
 $taskLogDir = Join-Path $taskProjectDir 'data'
 New-Item -ItemType Directory -Force -Path $taskLogDir | Out-Null
+$taskPrivateAccessFile = Join-Path $taskLogDir 'private-access.json'
+if (Test-Path -LiteralPath $taskPrivateAccessFile) {
+    $taskPrivateAccess = Get-Content -LiteralPath $taskPrivateAccessFile -Raw | ConvertFrom-Json
+    $taskTailnetHost = [string]$taskPrivateAccess.host
+    if ($taskTailnetHost -notmatch '^[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})+\.ts\.net$') { throw 'Invalid saved Tailscale hostname' }
+    $env:FORGERADAR_TAILSCALE_HOST = $taskTailnetHost
+}
 $taskLocalTokenFile = Join-Path $taskLogDir 'local-service-token.json'
 $taskHeaders = @{}
 $taskBundledPython = Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
