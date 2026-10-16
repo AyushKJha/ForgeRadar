@@ -28,9 +28,16 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     const member=await request('POST','/api/account/register',{email:'member@example.test',password:'a-long-member-password'});
     assert.equal(member.status,200);assert.equal(member.body.user.role,'member');
     const memberCookie=member.headers['set-cookie'][0].split(';')[0];
+    assert.equal((await request('GET','/api/account/local-ai')).status,401);
+    const localAi=await request('GET','/api/account/local-ai',null,memberCookie);
+    assert.equal(localAi.status,200);assert.equal(localAi.body.execution,'ForgeRadar host only');
+    assert.equal(localAi.body.manualFallback,true);
+    assert.equal(typeof localAi.body.resources.totalRamGiB,'number');
     assert.equal((await request('GET','/api/state',null,memberCookie)).status,403);
     assert.equal((await request('GET','/api/state',null,ownerCookie)).status,200);
-    assert.equal((await request('GET','/v3',null,memberCookie)).status,200);
+    const onboardingPage=await request('GET','/v3',null,memberCookie);
+    assert.equal(onboardingPage.status,200);assert.match(onboardingPage.body,/id="localAiStatus"/);
+    assert.match(onboardingPage.body,/data-theme="eclipse"/);assert.doesNotMatch(onboardingPage.body,/themeChoice/);
     assert.equal((await request('GET','/style.css',null,memberCookie)).status,200);
     const saved=await request('POST','/api/account/profile',{consent:true,profile:{domains:['cybersecurity'],onboardingComplete:true}},memberCookie);
     assert.equal(saved.status,200);

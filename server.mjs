@@ -90,6 +90,11 @@ if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
 }
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie',`forge_local=; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=0`);return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
+if(url.pathname==='/api/account/local-ai'&&req.method==='GET'){
+ if(!account)return send(401,{error:'Sign in first'});
+ const available=await models(),recommended=available.resources.totalRamGiB>=12?'qwen3:4b':'qwen3:1.7b';
+ return send(200,{ready:available.connected&&available.models.length>0,connected:available.connected,models:available.models,recommended,resources:available.resources,execution:'ForgeRadar host only',manualFallback:true});
+}
 if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});const projects=jobStore.projects(account.id);return send(200,{user:account,profile:jobStore.loadProfile(account.id),appearance:jobStore.appearance(account.id),discoveryFeedback:jobStore.listFeedback(account.id),projects:projects.map(project=>({...project,tasks:jobStore.tasks(account.id,project.id)}))});}
 if(url.pathname==='/api/account/appearance'){
  if(!account)return send(401,{error:'Sign in first'});

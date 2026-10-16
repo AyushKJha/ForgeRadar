@@ -98,6 +98,16 @@ const migrations=[
     updated_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS v3_tasks_project ON v3_tasks(project_id,created_at);`
+  ,`CREATE TABLE user_appearance_next (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    theme TEXT NOT NULL CHECK(theme='eclipse'),
+    reduced_motion INTEGER NOT NULL CHECK(reduced_motion IN (0,1)),
+    updated_at TEXT NOT NULL
+  );
+  INSERT INTO user_appearance_next (user_id,theme,reduced_motion,updated_at)
+    SELECT user_id,'eclipse',reduced_motion,updated_at FROM user_appearance;
+  DROP TABLE user_appearance;
+  ALTER TABLE user_appearance_next RENAME TO user_appearance;`
 ];
 
 export function openV3Store(filename){
@@ -191,8 +201,8 @@ export function openV3Store(filename){
     },
     listFeedback(userId){return feedbackByUser.all(userId);},
     deleteFeedback(userId,canonicalUrl){return Number(deleteFeedback.run(userId,canonicalUrl).changes);},
-    appearance(userId){const item=appearanceByUser.get(userId);return item?{theme:item.theme,reducedMotion:Boolean(item.reducedMotion),updatedAt:item.updatedAt}:{theme:'nebula',reducedMotion:false,updatedAt:null};},
-    saveAppearance(userId,theme,reducedMotion){if(!['nebula','sunset'].includes(theme)||typeof reducedMotion!=='boolean')throw new Error('Invalid appearance settings');upsertAppearance.run(userId,theme,Number(reducedMotion),new Date().toISOString());return this.appearance(userId);},
+    appearance(userId){const item=appearanceByUser.get(userId);return item?{theme:item.theme,reducedMotion:Boolean(item.reducedMotion),updatedAt:item.updatedAt}:{theme:'eclipse',reducedMotion:false,updatedAt:null};},
+    saveAppearance(userId,theme,reducedMotion){if(theme!=='eclipse'||typeof reducedMotion!=='boolean')throw new Error('Invalid appearance settings');upsertAppearance.run(userId,theme,Number(reducedMotion),new Date().toISOString());return this.appearance(userId);},
     createProject(userId,input){const now=new Date().toISOString(),id=randomUUID();insertProject.run(id,userId,input.title,input.problem,input.goal,input.successMetric,input.scope,input.sourceUrl||null,now,now);return projectById.get(id,userId);},
     project(userId,id){return projectById.get(id,userId)||null;},
     projects(userId){return projectsByUser.all(userId);},
