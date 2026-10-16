@@ -1,3 +1,5 @@
+<img src="docs/banner.svg" alt="ForgeRadar workflow illustration" width="100%">
+
 # ForgeRadar
 
 A local agent system for discovering software ideas, evaluating who would use them, proposing projects, building offline prototypes or persistent Node + SQLite applications, and syncing each approved project to its own private GitHub repository.
@@ -48,7 +50,17 @@ Résumé preview parses PDF or DOCX locally and deletes the temporary uploaded f
 
 Run `./install-worker.ps1` once on Windows to install the current-user startup shortcut and recovery supervisor. It starts at Windows sign-in and checks the engine, model and bridge every 30 seconds. Remove **ForgeRadar Worker.lnk** from your Startup folder to disable automatic startup. This installation uses no administrator privilege and does not run while Windows is off.
 
-For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded under `../../work/ollama`. The launcher also supports an Ollama installation on PATH. On another machine, install Ollama from https://ollama.com/download and download an appropriate local model. This laptop has 16 GB system RAM and an RTX 4060 with 8 GB GPU memory; inference is sequential to limit resource usage.
+Install Ollama from https://ollama.com/download and pull a local model that fits your available memory. The launcher can use an Ollama installation on PATH. Model speed depends on your machine.
+
+### First local session
+
+1. Install Node.js 24+, Git, and Ollama. Pull a model supported by your machine and confirm Ollama can answer locally.
+2. On Windows, launch `./start.ps1`; otherwise start Ollama yourself and run `node server.mjs` from the repository root.
+3. Open http://127.0.0.1:4317 and wait for the engine and model status to become ready.
+4. Use the workshop composer to request discovery or describe an idea. Review the sourced evidence, score, proposal, architecture, and QA results in the circuit.
+5. When a proposal is ready, choose its build mode and explicitly approve it. Inspect the generated files and QA report before syncing; approved generated projects are published to their own private repositories.
+
+The engine uses a local model for its core workflow. Source discovery requires the configured external services to be reachable; X search is disabled unless explicitly configured. New ideas wait for approval, and automated code iterations are disabled in this deployment.
 
 ## Sources
 
@@ -63,7 +75,7 @@ For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded und
 | X / Twitter | Optional recent-search API adapter; disabled by default. Requires X_BEARER_TOKEN and explicit FORGERADAR_X_ENABLED=1. Platform access may have costs. |
 | Instagram | Public post/caption imports; automated Instagram discovery is not connected |
 
-Posts imported through Ports are preserved across refreshes. Evidence selection balances communities and prioritizes idea requests within each source.
+Posts imported through the interface are preserved across refreshes. Evidence selection balances communities and prioritizes idea requests within each source.
 
 ## GitHub
 
