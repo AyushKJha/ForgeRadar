@@ -6,6 +6,8 @@ A local agent system for discovering software ideas, evaluating who would use th
 
 Discovery includes **unbuilt community ideas**, unmet needs and improvements to existing tools. A popular existing repository is context, not automatic proof that copying it would be worthwhile. Novelty remains unverified until researched, and a limited search cannot prove that no product exists.
 
+> **[Step-by-step user guide (PDF)](docs/USER_GUIDE.pdf)**
+
 ## Agent circuit
 
 `Scout → Miner → Evaluator → Critic → Proposal → Architect → Builder → QA → GitHub Sync`
@@ -32,7 +34,7 @@ Alternatively, start Ollama separately and run `node server.mjs`.
 
 Run `./install-worker.ps1` once on Windows to install the current-user startup shortcut and recovery supervisor. It starts at Windows sign-in and checks the engine, model and bridge every 30 seconds. Remove **ForgeRadar Worker.lnk** from your Startup folder to disable automatic startup. This installation uses no administrator privilege and does not run while Windows is off.
 
-For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded under `../../work/ollama`. The launcher also supports an Ollama installation on PATH. On another machine, install Ollama from https://ollama.com/download and download an appropriate local model. This laptop has 16 GB system RAM and an RTX 4060 with 8 GB GPU memory; inference is sequential to limit resource usage.
+Install Ollama from https://ollama.com/download and pull a local model that fits your available memory. The launcher can use an Ollama installation on PATH. Model speed depends on your machine.
 
 ## Sources
 
@@ -47,7 +49,7 @@ For this workspace, a portable Ollama runtime and `qwen3:4b` were downloaded und
 | X / Twitter | Optional recent-search API adapter; disabled by default. Requires X_BEARER_TOKEN and explicit FORGERADAR_X_ENABLED=1. Platform access may have costs. |
 | Instagram | Public post/caption imports; automated Instagram discovery is not connected |
 
-Posts imported through Ports are preserved across refreshes. Evidence selection balances communities and prioritizes idea requests within each source.
+Posts imported through the interface are preserved across refreshes. Evidence selection balances communities and prioritizes idea requests within each source.
 
 ## GitHub
 
