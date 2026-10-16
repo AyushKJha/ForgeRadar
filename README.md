@@ -1,3 +1,5 @@
+<img src="docs/banner.svg" alt="ForgeRadar workflow illustration" width="100%">
+
 # ForgeRadar
 
 A local agent system for discovering software ideas, evaluating who would use them, proposing projects, building offline prototypes or persistent Node + SQLite applications, and syncing each approved project to its own private GitHub repository.
