@@ -12,7 +12,7 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
   const filename=path.join(directory,'state.sqlite');
   try{
     let store=openV3Store(filename);
-    assert.equal(store.schemaVersion,7);
+    assert.equal(store.schemaVersion,9);
     const complete=randomUUID(),interrupted=randomUUID();
     store.begin(complete,'discover');store.stage(complete,'scout');store.finish(complete,'complete','scout');
     store.begin(interrupted,'build');store.stage(interrupted,'builder');

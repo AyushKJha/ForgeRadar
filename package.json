@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests.mjs remote-tests.mjs app-kit-tests.mjs v3-store-tests.mjs v3-profile-tests.mjs v3-auth-tests.mjs v3-tailnet-tests.mjs resume-parser-tests.mjs portfolio-import-tests.mjs research-sources-tests.mjs v3-discovery-tests.mjs v3-projects-tests.mjs v3-task-planner-tests.mjs"
+    "test": "node --test tests.mjs remote-tests.mjs app-kit-tests.mjs v3-store-tests.mjs v3-profile-tests.mjs v3-auth-tests.mjs v3-tailnet-tests.mjs resume-parser-tests.mjs portfolio-import-tests.mjs research-sources-tests.mjs v3-discovery-tests.mjs v3-projects-tests.mjs v3-task-planner-tests.mjs v3-builder-tests.mjs v3-release-tests.mjs"
   },
   "engines": {
     "node": ">=24"

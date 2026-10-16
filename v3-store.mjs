@@ -107,7 +107,38 @@ const migrations=[
   INSERT INTO user_appearance_next (user_id,theme,reduced_motion,updated_at)
     SELECT user_id,'eclipse',reduced_motion,updated_at FROM user_appearance;
   DROP TABLE user_appearance;
-  ALTER TABLE user_appearance_next RENAME TO user_appearance;`
+  ALTER TABLE user_appearance_next RENAME TO user_appearance;`,
+  `ALTER TABLE v3_tasks ADD COLUMN estimate_hours REAL CHECK(estimate_hours IS NULL OR estimate_hours BETWEEN 0 AND 1000);
+  ALTER TABLE v3_tasks ADD COLUMN due_date TEXT;
+  ALTER TABLE v3_tasks ADD COLUMN archived_at TEXT;
+  CREATE TABLE v3_task_dependencies (
+    task_id TEXT NOT NULL REFERENCES v3_tasks(id) ON DELETE CASCADE,
+    depends_on_id TEXT NOT NULL REFERENCES v3_tasks(id) ON DELETE CASCADE,
+    PRIMARY KEY(task_id,depends_on_id),
+    CHECK(task_id<>depends_on_id)
+  );
+  CREATE INDEX v3_task_dependencies_parent ON v3_task_dependencies(depends_on_id);
+  CREATE TABLE v3_task_events (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES v3_tasks(id) ON DELETE CASCADE,
+    event TEXT NOT NULL CHECK(event IN ('created','updated','dependencies','archived','restored')),
+    detail TEXT NOT NULL,
+    at TEXT NOT NULL
+  );
+  CREATE INDEX v3_task_events_task ON v3_task_events(task_id,at);`,
+  `CREATE TABLE v3_builds (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES v3_projects(id) ON DELETE CASCADE,
+    model TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('running','passed','failed','interrupted')),
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    spec_json TEXT,
+    report_json TEXT,
+    folder TEXT,
+    error TEXT
+  );
+  CREATE INDEX v3_builds_project ON v3_builds(project_id,started_at DESC);`
 ];
 
 export function openV3Store(filename){
@@ -125,6 +156,7 @@ export function openV3Store(filename){
   }
   const interrupted=db.prepare("UPDATE jobs SET status='interrupted',finished_at=?,error='Worker restarted before this job finished' WHERE status='running'").run(new Date().toISOString()).changes;
   const interruptedCommands=db.prepare("UPDATE pending_commands SET status='interrupted',finished_at=?,error='Worker restarted during this command; review before retrying' WHERE status='claimed'").run(new Date().toISOString()).changes;
+  db.prepare("UPDATE v3_builds SET status='interrupted',finished_at=?,error='Host restarted during build; inspect staging before retrying' WHERE status='running'").run(new Date().toISOString());
   const begin=db.prepare("INSERT INTO jobs (id,kind,status,stage,started_at) VALUES (?,?,'running',NULL,?)");
   const stage=db.prepare("UPDATE jobs SET stage=? WHERE id=? AND status='running'");
   const finish=db.prepare("UPDATE jobs SET status=?,stage=?,finished_at=?,error=? WHERE id=? AND status='running'");
@@ -160,10 +192,20 @@ export function openV3Store(filename){
   const updateProject=db.prepare("UPDATE v3_projects SET title=?,problem=?,goal=?,success_metric=?,scope=?,updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
   const approveProject=db.prepare("UPDATE v3_projects SET status='approved',updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
   const insertTask=db.prepare("INSERT INTO v3_tasks (id,project_id,title,description,acceptance,evidence,status,priority,created_at,updated_at) VALUES (?,?,?,?,?,NULL,'todo',?,?,?)");
-  const taskById=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE id=? AND project_id=?');
-  const tasksByProject=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE project_id=? ORDER BY created_at');
+  const taskById=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,estimate_hours AS estimateHours,due_date AS dueDate,archived_at AS archivedAt,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE id=? AND project_id=?');
+  const tasksByProject=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,estimate_hours AS estimateHours,due_date AS dueDate,archived_at AS archivedAt,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE project_id=? ORDER BY created_at');
   const updateTask=db.prepare('UPDATE v3_tasks SET title=?,description=?,acceptance=?,evidence=?,status=?,priority=?,updated_at=? WHERE id=? AND project_id=?');
   const deleteTask=db.prepare('DELETE FROM v3_tasks WHERE id=? AND project_id=?');
+  const dependenciesByTask=db.prepare('SELECT depends_on_id AS id FROM v3_task_dependencies WHERE task_id=? ORDER BY depends_on_id');
+  const allDependencies=db.prepare('SELECT d.task_id AS taskId,d.depends_on_id AS dependsOnId FROM v3_task_dependencies d JOIN v3_tasks t ON t.id=d.task_id WHERE t.project_id=?');
+  const dependentsByTask=db.prepare('SELECT t.id,t.status FROM v3_task_dependencies d JOIN v3_tasks t ON t.id=d.task_id WHERE d.depends_on_id=? AND t.project_id=?');
+  const clearDependencies=db.prepare('DELETE FROM v3_task_dependencies WHERE task_id=?');
+  const addDependency=db.prepare('INSERT INTO v3_task_dependencies (task_id,depends_on_id) VALUES (?,?)');
+  const appendTaskEvent=db.prepare('INSERT INTO v3_task_events (id,task_id,event,detail,at) VALUES (?,?,?,?,?)');
+  const taskEvents=db.prepare('SELECT event,detail,at FROM v3_task_events WHERE task_id=? ORDER BY at,id');
+  const insertBuild=db.prepare("INSERT INTO v3_builds (id,project_id,model,status,started_at) VALUES (?,?,?,'running',?)");
+  const finishBuild=db.prepare('UPDATE v3_builds SET status=?,finished_at=?,spec_json=?,report_json=?,folder=?,error=? WHERE id=? AND status=\'running\'');
+  const buildsByProject=db.prepare('SELECT id,project_id AS projectId,model,status,started_at AS startedAt,finished_at AS finishedAt,spec_json AS specJson,report_json AS reportJson,folder,error FROM v3_builds WHERE project_id=? ORDER BY started_at DESC LIMIT 30');
   const tokenHash=token=>createHash('sha256').update(token).digest('hex');
   return {
     schemaVersion:migrations.length,
@@ -208,10 +250,25 @@ export function openV3Store(filename){
     projects(userId){return projectsByUser.all(userId);},
     editProject(userId,id,input){if(!updateProject.run(input.title,input.problem,input.goal,input.successMetric,input.scope,new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return projectById.get(id,userId);},
     approveProject(userId,id){if(!approveProject.run(new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return projectById.get(id,userId);},
-    createTask(userId,projectId,input){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');const now=new Date().toISOString(),id=randomUUID();insertTask.run(id,projectId,input.title,input.description,input.acceptance,input.priority,now,now);return taskById.get(id,projectId);},
-    tasks(userId,projectId){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return tasksByProject.all(projectId);},
-    updateTask(userId,projectId,id,input){if(!projectById.get(projectId,userId)||!taskById.get(id,projectId))throw new Error('Task unavailable');updateTask.run(input.title,input.description,input.acceptance,input.evidence||null,input.status,input.priority,new Date().toISOString(),id,projectId);return taskById.get(id,projectId);},
-    deleteTask(userId,projectId,id){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return Number(deleteTask.run(id,projectId).changes);},
+    createTask(userId,projectId,input){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');const now=new Date().toISOString(),id=randomUUID();insertTask.run(id,projectId,input.title,input.description,input.acceptance,input.priority,now,now);appendTaskEvent.run(randomUUID(),id,'created',input.title,now);return {...taskById.get(id,projectId),dependencies:[]};},
+    tasks(userId,projectId){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return tasksByProject.all(projectId).map(item=>({...item,dependencies:dependenciesByTask.all(item.id).map(row=>row.id)}));},
+    taskHistory(userId,projectId,id){if(!projectById.get(projectId,userId)||!taskById.get(id,projectId))throw new Error('Task unavailable');return taskEvents.all(id);},
+    setTaskDependencies(userId,projectId,id,ids){
+      if(!projectById.get(projectId,userId)||!taskById.get(id,projectId))throw new Error('Task unavailable');
+      if(!Array.isArray(ids)||ids.length>30||new Set(ids).size!==ids.length||ids.some(value=>!/^[a-f0-9-]{36}$/i.test(value)||value===id||!taskById.get(value,projectId)))throw new Error('Dependencies must be distinct tasks in this project');
+      if(taskById.get(id,projectId).status==='done'&&ids.some(value=>taskById.get(value,projectId).status!=='done'))throw new Error('A completed task cannot have unfinished blockers');
+      const edges=allDependencies.all(projectId).filter(edge=>edge.taskId!==id);
+      edges.push(...ids.map(dependsOnId=>({taskId:id,dependsOnId})));
+      const parents=new Map();for(const edge of edges)parents.set(edge.taskId,[...(parents.get(edge.taskId)||[]),edge.dependsOnId]);
+      const visited=new Set(),active=new Set();const visit=node=>{if(active.has(node))throw new Error('Task dependencies cannot form a cycle');if(visited.has(node))return;active.add(node);for(const parent of parents.get(node)||[])visit(parent);active.delete(node);visited.add(node);};for(const node of parents.keys())visit(node);
+      db.exec('BEGIN IMMEDIATE');try{clearDependencies.run(id);for(const parent of ids)addDependency.run(id,parent);appendTaskEvent.run(randomUUID(),id,'dependencies',JSON.stringify(ids),new Date().toISOString());db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}
+      return {...taskById.get(id,projectId),dependencies:ids};
+    },
+    updateTask(userId,projectId,id,input){if(!projectById.get(projectId,userId)||!taskById.get(id,projectId))throw new Error('Task unavailable');if(input.status==='done'){for(const row of dependenciesByTask.all(id)){if(taskById.get(row.id,projectId)?.status!=='done')throw new Error('Complete blocking tasks before marking this task done');}}else if(dependentsByTask.all(id,projectId).some(item=>item.status==='done'))throw new Error('A completed dependent task requires this blocker to stay complete');const now=new Date().toISOString();updateTask.run(input.title,input.description,input.acceptance,input.evidence||null,input.status,input.priority,now,id,projectId);appendTaskEvent.run(randomUUID(),id,'updated',JSON.stringify({status:input.status,title:input.title}),now);return {...taskById.get(id,projectId),dependencies:dependenciesByTask.all(id).map(row=>row.id)};},
+    deleteTask(userId,projectId,id){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');if(dependentsByTask.all(id,projectId).length)throw new Error('Remove dependent links before deleting this task');return Number(deleteTask.run(id,projectId).changes);},
+    startBuild(userId,projectId,id,model){if(!projectById.get(projectId,userId)||projectById.get(projectId,userId).status!=='approved')throw new Error('Approved project unavailable');if(!/^[a-f0-9-]{36}$/i.test(id)||typeof model!=='string'||model.length>100)throw new Error('Invalid build');insertBuild.run(id,projectId,model,new Date().toISOString());},
+    finishBuild(id,result){if(!['passed','failed'].includes(result.status))throw new Error('Invalid build status');finishBuild.run(result.status,new Date().toISOString(),result.spec?JSON.stringify(result.spec):null,result.report?JSON.stringify(result.report):null,result.folder||null,result.error?String(result.error).slice(0,1000):null,id);},
+    builds(userId,projectId){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return buildsByProject.all(projectId).map(item=>({id:item.id,projectId:item.projectId,model:item.model,status:item.status,startedAt:item.startedAt,finishedAt:item.finishedAt,spec:item.specJson?JSON.parse(item.specJson):null,report:item.reportJson?JSON.parse(item.reportJson):null,folder:item.folder,error:item.error}));},
     putCache(key,provider,payload,ttlMs,etag=null){if(!/^[a-z0-9:_/-]{1,180}$/i.test(key)||!/^[a-z0-9_-]{1,40}$/i.test(provider)||!Number.isFinite(ttlMs)||ttlMs<1000||ttlMs>604800000)throw new Error('Invalid cache entry');const json=JSON.stringify(payload);if(json.length>1000000)throw new Error('Cache entry too large');const now=Date.now();putCache.run(key,provider,json,new Date(now).toISOString(),new Date(now+ttlMs).toISOString(),etag);},
     getCache(key,{allowStale=false}={}){const row=getCache.get(key);if(!row||(!allowStale&&Date.parse(row.expiresAt)<=Date.now()))return null;return {...row,payload:JSON.parse(row.payload),stale:Date.parse(row.expiresAt)<=Date.now()};},
     close(){db.close();}
