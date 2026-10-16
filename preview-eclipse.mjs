@@ -19,7 +19,7 @@ export const previewServer=http.createServer(async(req,res)=>{
   if(req.method==='GET'&&requestUrl.pathname==='/'&&requestUrl.search===''){
     try{
       const html=await readFile(path.join(root,'public','local-login.html'),'utf8');
-      const themed=html.replace('</head>','  <link rel="stylesheet" href="/eclipse-preview.css">\n</head>');
+      const themed=html.includes('href="/eclipse-preview.css"')?html:html.replace('</head>','  <link rel="stylesheet" href="/eclipse-preview.css">\n</head>');
       res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'});
       res.end(themed);
     }catch{res.writeHead(500);res.end('Preview unavailable');}
