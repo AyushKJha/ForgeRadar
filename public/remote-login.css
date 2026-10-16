@@ -1,0 +1,2 @@
+.auth-face{grid-column:1}.auth-stage{grid-template-columns:1fr 1fr}.auth-face form{margin-top:5px}.auth-face input{margin-top:4px}.auth-face .submit-button{width:100%}
+@media(max-width:640px){.auth-face{grid-column:auto}.auth-stage{height:540px}.auth-face{top:194px}}
