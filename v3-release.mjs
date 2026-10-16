@@ -20,7 +20,8 @@ export async function scanReleaseTree(folder){
   }
   for(const required of ['README.md','package.json','app.test.mjs','server.mjs','app.json'])if(!names.includes(required))findings.push({file:required,kind:'missing-file',detail:'Required release file is absent'});
   if(names.includes('README.md')){const readme=await readFile(path.join(folder,'README.md'),'utf8');for(const section of ['Run locally','Validate','Source and limitations'])if(!readme.includes(`## ${section}`))findings.push({file:'README.md',kind:'incomplete-readme',detail:`Missing ${section} section`});}
-  return {ready:findings.length===0,files,findings,scannedAt:new Date().toISOString()};
+  const fingerprint=createHash('sha256').update(files.sort((a,b)=>a.name.localeCompare(b.name)).map(file=>`${file.name}:${file.sha256}`).join('\n')).digest('hex');
+  return {ready:findings.length===0,files,findings,fingerprint,scannedAt:new Date().toISOString()};
 }
 
 export async function releaseReview({project,build,tasks}){
@@ -28,5 +29,5 @@ export async function releaseReview({project,build,tasks}){
   const scan=await scanReleaseTree(build.folder);
   const incomplete=tasks.filter(task=>!task.archivedAt&&task.status!=='done').map(task=>({id:task.id,title:task.title,status:task.status}));
   const checks=[{name:'Local build and acceptance tests',status:build.report.checks?.every(check=>check.status==='passed')?'passed':'blocked'},{name:'Release file and secret scan',status:scan.ready?'passed':'blocked'},{name:'Approved task completion',status:incomplete.length?'blocked':'passed'},{name:'Domain-specific human review',status:'human-review-needed'},{name:'Public hosting compatibility',status:'human-review-needed'}];
-  return {projectId:project.id,buildId:build.id,scannedAt:scan.scannedAt,files:scan.files,findings:scan.findings,incompleteTasks:incomplete,checks,readiness:checks.some(check=>check.status==='blocked')?'blocked':'human-review-needed',publicActionAvailable:false,hostingOptions:[{kind:'local',detail:'Runs while the owner computer is online; private access needs the configured tailnet.'},{kind:'static',detail:'This Node + SQLite application cannot run as a GitHub Pages static site.'},{kind:'public-host',detail:'Requires a separately reviewed compatible host and explicit owner approval.'}]};
+  return {projectId:project.id,buildId:build.id,scannedAt:scan.scannedAt,files:scan.files,findings:scan.findings,fingerprint:scan.fingerprint,incompleteTasks:incomplete,checks,readiness:checks.some(check=>check.status==='blocked')?'blocked':'human-review-needed',publicActionAvailable:checks.every(check=>check.status!=='blocked'),hostingOptions:[{kind:'local',detail:'Runs while the owner computer is online; private access needs the configured tailnet.'},{kind:'static',detail:'This Node + SQLite application cannot run as a GitHub Pages static site.'},{kind:'public-host',detail:'Requires a separately reviewed compatible host and explicit owner approval.'}]};
 }

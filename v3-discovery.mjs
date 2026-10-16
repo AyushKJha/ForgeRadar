@@ -48,6 +48,12 @@ export function rankResearch(record,profile,match,{mode='focused'}={}){
 }
 export function recommend(records,profile,options={}){
   const mode=options.mode||'focused';if(!modes.has(mode))throw new Error('Unknown discovery mode');
+  const adjustmentByDomain=new Map();
+  for(const entry of options.feedback||[]){
+    const source=(records||[]).find(record=>record.canonicalUrl===entry.canonicalUrl);if(!source)continue;
+    const delta=entry.status==='saved'?2:entry.status==='dismissed'&&/\birrelevant\b/i.test(entry.reason||'')?-4:0;
+    if(delta)for(const domain of matchedDomains(source))adjustmentByDomain.set(domain,Math.max(-12,Math.min(6,(adjustmentByDomain.get(domain)||0)+delta)));
+  }
   const seen=new Set(),items=[];
   for(const record of records||[]){
     if(!record?.canonicalUrl||seen.has(record.canonicalUrl))continue;
@@ -56,6 +62,9 @@ export function recommend(records,profile,options={}){
     seen.add(record.canonicalUrl);
     const match=eligibility(record,profile,{mode,adjacent:options.adjacent===true});if(!match.eligible)continue;
     const ranking=rankResearch(record,profile,match,{mode});
+    const adjustment=Math.max(-12,Math.min(6,Math.round(match.selected.reduce((sum,domain)=>sum+(adjustmentByDomain.get(domain)||0),0)/Math.max(1,match.selected.length))));
+    ranking.baseScore=ranking.score;ranking.adjustment=adjustment;ranking.score=clamp(ranking.score+adjustment);
+    ranking.personalization=adjustment?`Local feedback on ${match.selected.join(', ')}: ${adjustment>0?'+':''}${adjustment} heuristic points`:'No feedback adjustment';
     items.push({...record,matchedDomains:match.matched,selectedDomains:match.selected,adjacent:match.adjacent,whyThisMatches:match.reason,ranking,freshness:record.publishedAt&&Date.now()-Date.parse(record.publishedAt)<90*86400000?'recent publication':'publication not recent or unknown',status:record.cachedOffline?'cached/offline':'verified source',proposalStatus:'No project proposal generated'});
   }
   return items.sort((a,b)=>b.ranking.score-a.ranking.score||String(b.publishedAt||'').localeCompare(String(a.publishedAt||'')));

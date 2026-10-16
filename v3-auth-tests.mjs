@@ -78,6 +78,8 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal((await request('POST',`/v3-preview/${projectId}/api`,{action:'spec'},ownerCookie)).status,404);
     assert.equal((await request('GET',`/api/account/projects/${projectId}/release-review`,null,ownerCookie)).status,404);
     assert.equal((await request('GET',`/api/account/projects/${projectId}/release-review`,null,memberCookie)).status,409);
+    assert.equal((await request('POST',`/api/account/projects/${projectId}/publish`,{confirm:true,acknowledgeHumanReview:true,repoName:'malware-risk-explorer'},memberCookie)).status,403);
+    assert.equal((await request('POST',`/api/account/projects/${projectId}/publish`,{},ownerCookie)).status,404);
     const task=await request('POST',`/api/account/projects/${projectId}/tasks`,{title:'Parse fixture',description:'Write local parser',acceptance:'Three cases pass'},memberCookie);assert.equal(task.status,200);
     const taskId=task.body.task.id;
     const dependent=await request('POST',`/api/account/projects/${projectId}/tasks`,{title:'Verify output',description:'Inspect parser output',acceptance:'Expected output recorded'},memberCookie);
@@ -92,9 +94,14 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal((await request('PATCH',`/api/account/projects/${projectId}/tasks/${taskId}`,{status:'done',evidence:'Human sign-off after fixture review'},memberCookie)).status,200);
     assert.equal((await request('GET',`/api/account/projects/${projectId}/tasks`,null,memberCookie)).body.tasks[0].status,'done');
     assert.equal((await request('PATCH',`/api/account/projects/${projectId}/tasks/${dependentId}`,{status:'done',evidence:'Reviewed output'},memberCookie)).status,200);
+    const estimated=await request('PATCH',`/api/account/projects/${projectId}/tasks/${dependentId}`,{estimateHours:5,dueDate:'2026-11-05'},memberCookie);
+    assert.equal(estimated.body.task.estimateHours,5);assert.equal(estimated.body.task.dueDate,'2026-11-05');
+    assert.ok((await request('POST',`/api/account/projects/${projectId}/tasks/${dependentId}/archive`,{},memberCookie)).body.task.archivedAt);
+    assert.equal((await request('POST',`/api/account/projects/${projectId}/tasks/${dependentId}/restore`,{},memberCookie)).body.task.archivedAt,null);
     assert.equal((await request('GET',`/api/account/projects/${projectId}/tasks/${dependentId}/history`,null,memberCookie)).body.events.length>=3,true);
     const exportData=(await request('GET','/api/account/export',null,memberCookie)).body;
     assert.equal(exportData.projects[0].tasks[0].status,'done');assert.equal(exportData.discoveryFeedback.length,2);
+    assert.equal(exportData.projects[0].builds.length,1);assert.equal(exportData.projects[0].builds[0].folder,undefined);
     assert.equal((await request('GET','/api/account/export',null,ownerCookie)).body.projects.length,0);
     const localToken=JSON.parse(await readFile(path.join(directory,'local-service-token.json'),'utf8')).token;
     assert.equal((await request('GET','/api/state',null,null,'Bearer '+localToken)).status,200);

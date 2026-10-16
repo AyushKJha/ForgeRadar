@@ -12,7 +12,7 @@ test('additive V3 migration records jobs, survives restart and interrupts unfini
   const filename=path.join(directory,'state.sqlite');
   try{
     let store=openV3Store(filename);
-    assert.equal(store.schemaVersion,9);
+    assert.equal(store.schemaVersion,10);
     const complete=randomUUID(),interrupted=randomUUID();
     store.begin(complete,'discover');store.stage(complete,'scout');store.finish(complete,'complete','scout');
     store.begin(interrupted,'build');store.stage(interrupted,'builder');
@@ -84,6 +84,22 @@ test('Eclipse is fixed while reduced-motion preferences persist per user',async(
     assert.throws(()=>store.saveAppearance(first.id,'sunset',false));
     store.close();store=openV3Store(filename);
     assert.deepEqual([store.appearance(first.id).theme,store.appearance(first.id).reducedMotion,store.appearance(second.id).theme],['eclipse',true,'eclipse']);
+  }finally{store.close();await rm(directory,{recursive:true,force:true});}
+});
+
+test('build and publication records persist and remain scoped to their owner',async()=>{
+  const directory=await mkdtemp(path.join(os.tmpdir(),'forge-v3-publications-'));
+  const filename=path.join(directory,'state.sqlite');let store=openV3Store(filename);
+  try{const owner=store.createUser('owner@example.test','a-long-owner-password','owner');const other=store.createUser('other@example.test','a-long-member-password');
+    const project=store.createProject(owner.id,{title:'Signal desk',problem:'Inspect observations',goal:'Save records',successMetric:'Three entries',scope:'Local data app'});
+    store.approveProject(owner.id,project.id);const buildId=randomUUID();
+    store.startBuild(owner.id,project.id,buildId,'fixture');store.finishBuild(buildId,{status:'passed',spec:{title:'Signal desk'},report:{checks:[{status:'passed'}]}});
+    assert.throws(()=>store.builds(other.id,project.id));
+    const publicationId=randomUUID();store.startPublication(owner.id,project.id,buildId,publicationId,'signal-desk');
+    store.finishPublication(publicationId,{status:'public',repoUrl:'https://github.com/example/signal-desk',commitSha:'a'.repeat(40)});
+    store.close();store=openV3Store(filename);
+    assert.equal(store.publication(owner.id,project.id).status,'public');
+    assert.throws(()=>store.publication(other.id,project.id));
   }finally{store.close();await rm(directory,{recursive:true,force:true});}
 });
 

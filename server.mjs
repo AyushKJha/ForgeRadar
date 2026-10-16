@@ -11,6 +11,7 @@ import {isolatedPreview} from './preview.mjs';
 import {openApp,appSpecSchema} from './app-kit.mjs';
 import {buildV3Application} from './v3-builder.mjs';
 import {releaseReview} from './v3-release.mjs';
+import {savedGithubToken,githubApi,publishPublicRepository,validRepoName} from './v3-github.mjs';
 import {validateProfile,domains} from './v3-profile.mjs';
 import {previewResume} from './resume-parser.mjs';
 import {previewGithubPortfolio} from './portfolio-import.mjs';
@@ -93,12 +94,17 @@ if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
 }
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie',`forge_local=; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=0`);return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
+if(url.pathname==='/api/account/github-identity'&&req.method==='GET'){
+ if(account?.role!=='owner')return send(403,{error:'Owner account required'});
+ const token=await savedGithubToken();if(!token)return send(503,{error:'No saved GitHub credential on this host'});
+ const identity=await githubApi(token,'/user');return send(200,{login:identity.login});
+}
 if(url.pathname==='/api/account/local-ai'&&req.method==='GET'){
  if(!account)return send(401,{error:'Sign in first'});
  const available=await models(),recommended=available.resources.totalRamGiB>=12?'qwen3:4b':'qwen3:1.7b';
  return send(200,{ready:available.connected&&available.models.length>0,connected:available.connected,models:available.models,recommended,resources:available.resources,execution:'ForgeRadar host only',manualFallback:true});
 }
-if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});const projects=jobStore.projects(account.id);return send(200,{user:account,profile:jobStore.loadProfile(account.id),appearance:jobStore.appearance(account.id),discoveryFeedback:jobStore.listFeedback(account.id),projects:projects.map(project=>({...project,tasks:jobStore.tasks(account.id,project.id)}))});}
+if(url.pathname==='/api/account/export'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});const projects=jobStore.projects(account.id);return send(200,{user:account,profile:jobStore.loadProfile(account.id),appearance:jobStore.appearance(account.id),discoveryFeedback:jobStore.listFeedback(account.id),projects:projects.map(project=>({...project,tasks:jobStore.tasks(account.id,project.id),builds:jobStore.builds(account.id,project.id).map(({folder,...build})=>build),publication:jobStore.publication(account.id,project.id)}))});}
 if(url.pathname==='/api/account/appearance'){
  if(!account)return send(401,{error:'Sign in first'});
  if(req.method==='GET')return send(200,jobStore.appearance(account.id));
@@ -107,7 +113,7 @@ if(url.pathname==='/api/account/appearance'){
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>300)return send(413,{error:'Settings too large'});}const body=JSON.parse(raw||'{}');
  return send(200,jobStore.saveAppearance(account.id,body.theme,body.reducedMotion));
 }
-if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]{36}(?:\/(?:approve|suggest-tasks|builds|release-review|tasks)(?:\/[a-f0-9-]{36}(?:\/(?:dependencies|history))?)?)?$/.test(url.pathname)){
+if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]{36}(?:\/(?:approve|suggest-tasks|builds|release-review|publication|publish|tasks)(?:\/[a-f0-9-]{36}(?:\/(?:dependencies|history|archive|restore))?)?)?$/.test(url.pathname)){
  if(!account)return send(401,{error:'Sign in first'});
  const parts=url.pathname.split('/'),projectId=parts[4],sub=parts[5],taskId=parts[6],taskAction=parts[7];
  if(req.method==='GET'){
@@ -116,6 +122,7 @@ if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]
    if(sub==='tasks'&&taskAction==='history')return send(200,{events:jobStore.taskHistory(account.id,projectId,taskId)});
    if(sub==='tasks')return send(200,{tasks:jobStore.tasks(account.id,projectId)});
    if(sub==='builds')return send(200,{builds:jobStore.builds(account.id,projectId)});
+   if(sub==='publication')return send(200,{publication:jobStore.publication(account.id,projectId)});
    if(sub==='release-review'){
      const build=jobStore.builds(account.id,projectId).find(item=>item.status==='passed'&&item.folder);
      if(!build)return send(409,{error:'Run a passing private build before release review'});
@@ -129,6 +136,24 @@ if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>6000)return send(413,{error:'Request too large'});}const body=JSON.parse(raw||'{}');
  if(!projectId&&req.method==='POST')return send(200,{project:jobStore.createProject(account.id,validateProposal(body,{sourceUrls:state.research.records.map(item=>item.canonicalUrl)}))});
  const project=jobStore.project(account.id,projectId);if(!project)return send(404,{error:'Project unavailable'});
+ if(sub==='publish'&&req.method==='POST'){
+   if(account.role!=='owner')return send(403,{error:'Only the owner can publish a project'});
+   if(busy||runtime.active())return send(409,{error:'Local worker is busy'});
+   if(body.confirm!==true||body.acknowledgeHumanReview!==true||!validRepoName(body.repoName))return send(400,{error:'Choose a valid repository name and explicitly confirm public source release'});
+   if(jobStore.publication(account.id,projectId))return send(409,{error:'A publication attempt already exists; inspect its status before retrying'});
+   const build=jobStore.builds(account.id,projectId).find(item=>item.id===body.buildId&&item.status==='passed'&&item.folder);
+   if(!build)return send(409,{error:'Selected passing build unavailable'});
+   const workspaceRoot=path.resolve(data,'v3-workspaces',projectId,'builds');
+   if(path.dirname(path.resolve(build.folder))!==workspaceRoot)return send(409,{error:'Build folder is outside this project workspace'});
+   const review=await releaseReview({project,build,tasks:jobStore.tasks(account.id,projectId)});
+   if(!review.publicActionAvailable||review.fingerprint!==body.fingerprint)return send(409,{error:'Release checks or file fingerprint changed; review again'});
+   const token=await savedGithubToken();if(!token)return send(503,{error:'No saved GitHub credential on this host'});
+   const api=(endpoint,method,requestBody)=>githubApi(token,endpoint,method,requestBody);
+   const identity=await api('/user');if(identity.login!==body.githubOwner)return send(409,{error:'GitHub account changed; review the destination again'});
+   const publicationId=randomUUID();jobStore.startPublication(account.id,projectId,build.id,publicationId,body.repoName);busy=true;
+   try{const stagingParent=path.join(data,'v3-release-staging',projectId);await mkdir(stagingParent,{recursive:true});const result=await publishPublicRepository({sourceFolder:build.folder,stagingFolder:path.join(stagingParent,publicationId),repoName:body.repoName,expectedFingerprint:review.fingerprint,confirmed:true,acknowledgeHumanReview:true,api});jobStore.finishPublication(publicationId,{status:'public',repoUrl:result.repositoryUrl,commitSha:result.commitSha});return send(200,{publication:jobStore.publication(account.id,projectId),hosting:result.hosting,websiteUrl:null});}
+   catch(error){jobStore.finishPublication(publicationId,{status:'failed',repoUrl:error.privateRepositoryUrl,error:error.message});return send(502,{error:error.message,privateRepositoryUrl:error.privateRepositoryUrl||null,publication:jobStore.publication(account.id,projectId)});}finally{busy=false;}
+ }
  if(sub==='builds'&&req.method==='POST'){
    if(project.status!=='approved'||body.confirm!==true)return send(409,{error:'Approve the proposal and confirm this local build first'});
    if(busy||runtime.active())return send(409,{error:'Local worker is busy'});
@@ -156,7 +181,7 @@ if(url.pathname==='/api/account/projects'||/^\/api\/account\/projects\/[a-f0-9-]
  if(!sub&&req.method==='PATCH')return send(200,{project:jobStore.editProject(account.id,projectId,validateProposal({...project,...body},{sourceUrls:[...state.research.records.map(item=>item.canonicalUrl),project.sourceUrl].filter(Boolean)}))});
  if(sub==='approve'&&req.method==='POST'){if(body.confirm!==true)return send(400,{error:'Explicit proposal approval is required'});return send(200,{project:jobStore.approveProject(account.id,projectId)});}
  if(sub==='tasks'&&!taskId&&req.method==='POST'){if(project.status!=='approved')return send(409,{error:'Approve the project proposal before adding tasks'});return send(200,{task:jobStore.createTask(account.id,projectId,validateTask(body))});}
- if(sub==='tasks'&&taskId){const current=jobStore.tasks(account.id,projectId).find(item=>item.id===taskId);if(!current)return send(404,{error:'Task unavailable'});if(taskAction==='dependencies'&&req.method==='PUT')return send(200,{task:jobStore.setTaskDependencies(account.id,projectId,taskId,body.ids)});if(taskAction)return send(405,{error:'Method not allowed'});if(req.method==='PATCH')return send(200,{task:jobStore.updateTask(account.id,projectId,taskId,validateTask({...current,...body}))});if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteTask(account.id,projectId,taskId)});}
+ if(sub==='tasks'&&taskId){const current=jobStore.tasks(account.id,projectId).find(item=>item.id===taskId);if(!current)return send(404,{error:'Task unavailable'});if(taskAction==='dependencies'&&req.method==='PUT')return send(200,{task:jobStore.setTaskDependencies(account.id,projectId,taskId,body.ids)});if(['archive','restore'].includes(taskAction)&&req.method==='POST')return send(200,{task:jobStore.archiveTask(account.id,projectId,taskId,taskAction==='archive')});if(taskAction)return send(405,{error:'Method not allowed'});if(req.method==='PATCH')return send(200,{task:jobStore.updateTask(account.id,projectId,taskId,validateTask({...current,...body}))});if(req.method==='DELETE')return send(200,{deleted:jobStore.deleteTask(account.id,projectId,taskId)});}
  return send(405,{error:'Method not allowed'});
 }
 if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
@@ -165,7 +190,7 @@ if(url.pathname==='/api/account/discovery'&&req.method==='GET'){
  const mode=url.searchParams.get('mode')||'focused';
  const adjacent=url.searchParams.get('adjacent')==='true';
  const feedback=new Map(jobStore.listFeedback(account.id).map(item=>[item.canonicalUrl,item]));
- const items=recommend(state.research.records,profile,{mode,adjacent}).filter(item=>url.searchParams.get('showDismissed')==='true'||feedback.get(item.canonicalUrl)?.status!=='dismissed').map(item=>({...item,feedback:feedback.get(item.canonicalUrl)||null}));
+ const items=recommend(state.research.records,profile,{mode,adjacent,feedback:[...feedback.values()]}).filter(item=>url.searchParams.get('showDismissed')==='true'||feedback.get(item.canonicalUrl)?.status!=='dismissed').map(item=>({...item,feedback:feedback.get(item.canonicalUrl)||null}));
  return send(200,{items,sourceHealth:state.research.health,lastRefresh:state.research.lastRefresh,sourceCount:state.research.records.length,profileRequired:!profile?.domains?.length});
 }
 if(url.pathname==='/api/account/related'&&req.method==='GET'){

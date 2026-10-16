@@ -36,3 +36,12 @@ test('related work only cites real cached records and labels limited coverage',(
   assert.ok(result.items.every(item=>item.url.startsWith('https://')));
   assert.match(result.coverage,/cannot establish worldwide originality/);
 });
+test('local feedback adjusts ranking transparently without weakening hard domain rules',()=>{
+  const profile={domains:['cybersecurity'],excludedDomains:[],goal:'learning'};
+  const sources=[record('Cybersecurity vulnerability detection','W50'),record('Cybersecurity malware detection','W51'),record('Web application framework','W52')];
+  const feedback=[{canonicalUrl:sources[0].canonicalUrl,status:'dismissed',reason:'irrelevant'}];
+  const adjusted=recommend(sources,profile,{feedback});
+  assert.equal(adjusted.length,2);assert.equal(adjusted.find(item=>item.canonicalUrl===sources[1].canonicalUrl).ranking.adjustment,-4);
+  assert.match(adjusted[0].ranking.personalization,/Local feedback/);
+  assert.equal(recommend(sources,profile)[1].ranking.adjustment,0);
+});

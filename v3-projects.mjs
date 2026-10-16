@@ -11,5 +11,9 @@ export function validateTask(input){
   if(!['todo','in_progress','review','blocked','done'].includes(status)||!['low','medium','high'].includes(priority))throw new Error('Invalid task status or priority');
   const evidence=field(input.evidence,1200,'Evidence',{required:false}),acceptance=field(input.acceptance,800,'Acceptance criteria');
   if(status==='done'&&!evidence)throw new Error('A completed task needs test evidence or a human sign-off note');
-  return {title:field(input.title,140,'Task title'),description:field(input.description,1500,'Description'),acceptance,evidence,status,priority};
+  const estimateHours=input.estimateHours===null||input.estimateHours===undefined||input.estimateHours===''?null:Number(input.estimateHours);
+  if(estimateHours!==null&&(!Number.isFinite(estimateHours)||estimateHours<0||estimateHours>1000))throw new Error('Estimate must be 0 to 1000 hours');
+  const dueDate=input.dueDate||null;
+  if(dueDate!==null&&(typeof dueDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)||!Number.isFinite(Date.parse(dueDate))||new Date(dueDate).toISOString().slice(0,10)!==dueDate))throw new Error('Use a valid due date');
+  return {title:field(input.title,140,'Task title'),description:field(input.description,1500,'Description'),acceptance,evidence,status,priority,estimateHours,dueDate};
 }
