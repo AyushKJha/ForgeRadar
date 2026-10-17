@@ -21,7 +21,6 @@ async function submitAccount(event,mode){
   const form=event.currentTarget,button=form.querySelector('[type="submit"]'),fields=new FormData(form);
   button.disabled=true;notice.textContent=mode==='register'?'Creating your account on the host laptop…':'Signing in…';
   const body={email:fields.get('email'),password:fields.get('password')};
-  if(mode==='register')body.inviteKey=fields.get('inviteKey');
   try{
     const response=await fetch('/api/account/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const result=await response.json();

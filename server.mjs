@@ -97,11 +97,35 @@ if(url.pathname==='/api/account/remote-auth'&&req.method==='POST'){
  if(!bridgeAuthorized)return send(403,{error:'Authorized laptop bridge required'});
  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Request too large'});}
  const body=JSON.parse(raw||'{}');let user;
- if(body.action==='register'){try{user=jobStore.createUser(body.email,body.password,'member');}catch(error){return send(409,{error:error.message||'Account could not be created'});}}
+ if(body.action==='register'){
+  try{user=jobStore.createUser(body.email,body.password,'member');}
+  catch(error){const message=String(error.message||'Account could not be created');const status=message.startsWith('Use a valid email')?400:409;return send(status,{error:status===409?'An account with that email already exists.':message});}
+ }
  else if(body.action==='login')user=jobStore.verifyUser(body.email,body.password);
  else return send(400,{error:'Unknown account action'});
  if(!user)return send(401,{error:'Incorrect email or password'});
- return send(200,{user:{id:user.id,email:user.email,role:user.role}});
+ const sessionToken=jobStore.createSession(user.id);
+ return send(200,{user:{id:user.id,email:user.email,role:user.role},sessionToken});
+}
+if(url.pathname==='/api/account/remote-proxy'&&req.method==='POST'){
+ if(!bridgeAuthorized)return send(403,{error:'Authorized laptop bridge required'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>12_500_000)return send(413,{error:'Account request is too large'});}
+ const body=JSON.parse(raw||'{}'),session=jobStore.authenticate(body.sessionToken);
+ if(!session)return send(401,{error:'Account session expired'});
+ if(!['GET','POST','PUT','PATCH','DELETE'].includes(body.method))return send(400,{error:'Unsupported account method'});
+ let target;try{target=new URL(body.path,'http://localhost');}catch{return send(400,{error:'Invalid account path'});}
+ const allowedAccount=target.pathname.startsWith('/api/account/')&&!['/api/account/remote-auth','/api/account/remote-proxy'].includes(target.pathname);
+ const allowedPreview=/^\/v3-preview\/[a-f0-9-]{36}\/(?:|workspace\.(?:css|js)|api)$/.test(target.pathname);
+ if(target.origin!=='http://localhost'||(!allowedAccount&&!allowedPreview))return send(403,{error:'Account path is not allowed'});
+ const forwarded=await fetch(`http://localhost:${process.env.PORT||4317}${target.pathname}${target.search}`,{method:body.method,headers:{Cookie:`forge_local=${body.sessionToken}`,Origin:`http://localhost:${process.env.PORT||4317}`,...(body.body?{'Content-Type':'application/json'}:{})},...(body.method==='GET'||body.method==='DELETE'?{}:{body:body.body||'{}'}),signal:AbortSignal.timeout(180000)});
+ const bytes=Buffer.from(await forwarded.arrayBuffer());if(bytes.length>8_500_000)return send(502,{error:'Account response exceeded the relay limit'});
+ return send(200,{status:forwarded.status,contentType:forwarded.headers.get('content-type')||'application/octet-stream',body:bytes.toString('base64')});
+}
+if(url.pathname==='/api/account/remote-owner-check'&&req.method==='POST'){
+ if(!bridgeAuthorized)return send(403,{error:'Authorized laptop bridge required'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Request too large'});}
+ const body=JSON.parse(raw||'{}'),account=jobStore.authenticate(body.sessionToken);
+ return send(200,{isOwner:account?.role==='owner'});
 }
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie',`forge_local=; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=0`);return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
