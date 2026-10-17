@@ -11,7 +11,7 @@ try{repo=await api(`/repos/${me.login}/${name}`);}catch(e){if(e.status!==404)thr
 if(repo.owner.login!==me.login||repo.full_name!=='AyushKJha/ForgeRadar')throw new Error('Expected the owner-authorized ForgeRadar repository');
 const allowed=['.gitignore','README.md','package.json','server.mjs','orchestrator.mjs','app-kit.mjs','fullstack.mjs','app-kit-tests.mjs','social-sources.mjs','competition.mjs','tests.mjs','daily.mjs','platform-sync.mjs','start.ps1','start-projects.ps1','worker-supervisor.ps1','install-worker.ps1','remote.mjs','preview.mjs','remote-tests.mjs','smoke.mjs','bridge.mjs','render.yaml','AUDIT.md','.env.example'];const files=[];
 for(const filename of allowed)try{files.push({path:filename,content:await readFile(path.join(root,filename),'utf8')});}catch(e){if(e.code!=='ENOENT')throw e;}
-for(const item of await readdir(path.join(root,'public'),{withFileTypes:true}))if(item.isFile()&&/\.(html|css|js)$/.test(item.name))files.push({path:'public/'+item.name,content:await readFile(path.join(root,'public',item.name),'utf8')});
+for(const item of await readdir(path.join(root,'public'),{withFileTypes:true}))if(item.isFile()&&/\.(html|css|js|svg)$/.test(item.name))files.push({path:'public/'+item.name,content:await readFile(path.join(root,'public',item.name),'utf8')});
 for(const file of files)if(/(?:github_pat_|gh[pousr]_)[A-Za-z0-9_]{20,}|sk-proj-[A-Za-z0-9_-]{20,}/.test(file.content))throw new Error('Secret-like string detected in source; publication stopped');
 const base=`/repos/${me.login}/${name}`;let ref;for(let i=0;i<4;i++){try{ref=await api(base+'/git/ref/heads/'+repo.default_branch);break;}catch(e){if(i===3)throw e;await new Promise(r=>setTimeout(r,1000));}}
 const commit=await api(base+'/git/commits/'+ref.object.sha);const tree=[];

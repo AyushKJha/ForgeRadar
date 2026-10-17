@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ForgeRadar shared-stroke FR monogram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ForgeRadar shared-stroke FR monogram with brown terminal dot">
   <rect width="64" height="64" rx="19" fill="#111915"/>
-  <path fill="none" stroke="#c4ed72" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" d="M16 48V16H40M16 29H35M35 29V48M35 29H42C49 29 52 32 52 37.5S49 46 42 46H35M42 46L52 53"/>
+  <path fill="none" stroke="#c4ed72" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(3.84 3.84) scale(.88)" d="M16 48V16H40M16 29H35M35 29V48M35 29H42C49 29 52 32 52 37.5S49 46 42 46H35M42 46L52 53"/>
+  <circle cx="52.8" cy="50.4" r="2.15" fill="#9b6b4f"/>
 </svg>
