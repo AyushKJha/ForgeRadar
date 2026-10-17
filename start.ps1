@@ -4,6 +4,9 @@ $taskProjectDir = $PSScriptRoot
 $taskRuntimeDir = [IO.Path]::GetFullPath((Join-Path $taskProjectDir '../../work/ollama'))
 $taskLogDir = Join-Path $taskProjectDir 'data'
 New-Item -ItemType Directory -Force -Path $taskLogDir | Out-Null
+$taskNodeCommand = Get-Command node -ErrorAction SilentlyContinue
+$taskNodeExe = if ($taskNodeCommand) { $taskNodeCommand.Source } else { Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe' }
+if (-not (Test-Path -LiteralPath $taskNodeExe)) { throw 'Node.js was not found. Install Node.js or repair the bundled ForgeRadar runtime.' }
 $taskPrivateAccessFile = Join-Path $taskLogDir 'private-access.json'
 if (Test-Path -LiteralPath $taskPrivateAccessFile) {
     $taskPrivateAccess = Get-Content -LiteralPath $taskPrivateAccessFile -Raw | ConvertFrom-Json
@@ -42,7 +45,6 @@ if (-not $NoModel) {
 $taskEngineReady = $false
 try { $null = Invoke-RestMethod -Uri 'http://127.0.0.1:4317/api/machine' -Headers $taskHeaders -TimeoutSec 2; $taskEngineReady = $true } catch {}
 if (-not $taskEngineReady) {
-    $taskNodeExe = (Get-Command node -ErrorAction Stop).Source
     $taskServerFile = Join-Path $taskProjectDir 'server.mjs'
     $taskEngineProcess = Start-Process -FilePath $taskNodeExe -ArgumentList @('"' + $taskServerFile + '"') -WorkingDirectory $taskProjectDir -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $taskLogDir 'engine.log') -RedirectStandardError (Join-Path $taskLogDir 'engine-error.log')
     $taskEngineProcess.Id | Set-Content -LiteralPath (Join-Path $taskLogDir 'engine.pid')
@@ -70,7 +72,7 @@ if ((Test-Path -LiteralPath $taskDeploymentFile) -and (Get-Content -LiteralPath 
         $taskBridgeRunning=$taskBridgeProcess -and $taskBridgeProcess.CommandLine.Contains((Join-Path $taskProjectDir 'bridge.mjs'))
     }
     if (-not $taskBridgeRunning) {
-        $taskBridge=Start-Process -FilePath (Get-Command node).Source -ArgumentList @('"'+(Join-Path $taskProjectDir 'bridge.mjs')+'"') -WorkingDirectory $taskProjectDir -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $taskLogDir 'bridge.log') -RedirectStandardError (Join-Path $taskLogDir 'bridge-error.log')
+        $taskBridge=Start-Process -FilePath $taskNodeExe -ArgumentList @('"'+(Join-Path $taskProjectDir 'bridge.mjs')+'"') -WorkingDirectory $taskProjectDir -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $taskLogDir 'bridge.log') -RedirectStandardError (Join-Path $taskLogDir 'bridge-error.log')
         $taskBridge.Id | Set-Content -LiteralPath $taskBridgePidFile
     }
 }
