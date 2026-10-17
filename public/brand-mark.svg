@@ -1,7 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ForgeRadar shared-stroke FR monogram">
-  <rect width="64" height="64" rx="19" fill="#151d18"/>
-  <g fill="none" stroke="#c4ed72" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M9 12V52M9 12H35M9 24H32"/>
-    <path d="M32 12V31M32 12H38C49 12 54 17 54 23S49 31 38 31H32M38 31L55 52"/>
-  </g>
+  <rect width="64" height="64" rx="19" fill="#111915"/>
+  <path fill="none" stroke="#c4ed72" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" d="M16 48V16H40M16 29H35M35 29V48M35 29H42C49 29 52 32 52 37.5S49 46 42 46H35M42 46L52 53"/>
 </svg>
