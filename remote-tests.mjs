@@ -8,6 +8,7 @@ test('public dashboard protects state and serializes authenticated worker comman
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url='http://127.0.0.1:'+server.address().port;
 try{
 let r=await fetch(url+'/api/state');assert.equal(r.status,401);
+r=await fetch(url+'/download/forgeradar-android.apk');assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/application\/vnd\.android\.package-archive/);assert.equal(Buffer.from(await r.arrayBuffer()).subarray(0,2).toString(),'PK');
 r=await fetch(url+'/bridge',{method:'POST',body:'{}'});assert.equal(r.status,401);
 r=await fetch(url+'/login',{method:'POST',headers:{Origin:'https://evil.example'},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,403);
 r=await fetch(url+'/login',{method:'POST',headers:{Origin:url,Accept:'application/json'},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,200);assert.equal((await r.json()).ok,true);assert.match(r.headers.get('set-cookie'),/forge_session=[a-f0-9]{64}\.[a-f0-9]+\.[a-f0-9]{64}; HttpOnly; Secure; SameSite=Strict/);
