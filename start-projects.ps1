@@ -5,7 +5,9 @@ $taskProjects = Join-Path $taskRoot 'projects'
 $taskStatePath = Join-Path $taskData 'state.json'
 $taskPortsPath = Join-Path $taskData 'local-project-ports.json'
 if (-not (Test-Path -LiteralPath $taskStatePath)) { Write-Output 'No projects to launch yet.'; return }
-$taskNode = (Get-Command node -ErrorAction Stop).Source
+$taskNodeCommand = Get-Command node -ErrorAction SilentlyContinue
+$taskNode = if ($taskNodeCommand) { $taskNodeCommand.Source } else { Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe' }
+if (-not (Test-Path -LiteralPath $taskNode)) { throw 'Node.js was not found. Install Node.js or repair the bundled ForgeRadar runtime.' }
 $taskState = Get-Content -LiteralPath $taskStatePath -Raw | ConvertFrom-Json
 $taskExisting = @{}
 if (Test-Path -LiteralPath $taskPortsPath) {
