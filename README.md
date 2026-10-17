@@ -2,7 +2,7 @@
 
 # ForgeRadar
 
-**Hosted owner dashboard:** [forgeradar.onrender.com](https://forgeradar.onrender.com/). It uses the Eclipse sign-in page and requires the workshop password. The V3 account and profile workspace currently runs on the owner's laptop at `http://127.0.0.1:4317/`; it is not hosted on Render.
+**Hosted dashboard:** [forgeradar.onrender.com](https://forgeradar.onrender.com/). Its Eclipse sign-in page supports the owner password and invited accounts. Invited accounts share the owner's workshop; authentication is checked against the owner's laptop, which must be online. Password hashes and project data stay in the laptop's local SQLite store; the hosted page is a protected gateway, not an independent multi-tenant cloud service.
 
 The [Android source](android/README.md) is a secure mobile shell for the hosted owner dashboard. No APK has been built or device-tested in this checkout; that requires the Android SDK and its license. The Android app uses the live site and cannot run the laptop's local AI when the worker is offline.
 
@@ -38,7 +38,9 @@ Alternatively, start Ollama separately and run `node server.mjs`.
 
 ### V3 local accounts and profile
 
-Open the local address and sign in. On the existing owner's laptop, the first owner account is `owner@forgeradar.local` with the existing workshop password; the password is hashed in the local SQLite database. On a clean installation without prior deployment credentials, the first registered account becomes the owner. Other local accounts have separate private profile rows and cannot access the legacy owner workspace or its project APIs. The existing remote Render dashboard still has its separate owner password; member profiles are local until the V3 remote-access phase is complete.
+Open the local address and sign in. On the existing owner's laptop, the first owner account is `owner@forgeradar.local` with the existing workshop password; the password is hashed in the local SQLite database. On a clean installation without prior deployment credentials, the first registered account becomes the owner. Other local accounts have separate private profile rows and cannot access the legacy owner workspace or its project APIs.
+
+The hosted sign-in/create-account card uses the same Eclipse slide transition. Remote account creation is invitation-only and invited accounts share the owner's hosted workshop; they are not separate workspaces. The owner's laptop worker must be running and connected for remote email/password sign-in or account creation. Authentication is checked against the laptop's local SQLite database, and the hosted page does not store account passwords. When the laptop is offline, remote sign-in reports that access is unavailable.
 
 The V3 profile page lets each account select and exclude interests, review claimed skills and portfolio projects, save with consent, export data or delete the profile. GitHub portfolio preview uses only GitHub's public REST API after you enter a profile URL and click review. It reads at most 30 public repositories, caches for one hour, and saves only selections you make. Public profile ownership is not verified by this import.
 
