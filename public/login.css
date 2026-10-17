@@ -28,7 +28,7 @@
 .auth-card[data-mode=register] .blade-copy-register{opacity:1;transform:translate3d(0,0,0);visibility:visible}
 @media(max-width:640px){.auth-card[data-mode=login] .blade-copy-login,.auth-card[data-mode=login] .blade-copy-register,.auth-card[data-mode=register] .blade-copy-login,.auth-card[data-mode=register] .blade-copy-register{visibility:visible}.auth-face{will-change:transform}}
 @media(max-width:640px){.auth-face-login{transform:translate3d(0,0,0)}.auth-face-register{transform:translate3d(100%,0,0)}.auth-card[data-mode=register] .auth-face-login{transform:translate3d(-100%,0,0)}.auth-card[data-mode=register] .auth-face-register{transform:translate3d(0,0,0)}.auth-blade{will-change:auto}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.intro{display:none!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.intro{display:grid!important}.auth-face{transition:transform .22s ease-out!important}}
 /* Keep the auth faces anchored to the same mobile viewport. Explicit left/right
    insets matter here: otherwise their old two-column grid static positions can
    cancel the horizontal slide on portrait devices and WebViews. */

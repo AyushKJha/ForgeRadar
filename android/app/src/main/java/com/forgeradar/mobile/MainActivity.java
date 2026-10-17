@@ -141,8 +141,9 @@ public final class MainActivity extends ComponentActivity {
         });
         if (savedInstanceState == null) {
             webView.loadUrl(HOME);
-            if (ValueAnimator.areAnimatorsEnabled()) mainHandler.postDelayed(finishIntroRunnable, 1900);
-            else finishIntro();
+            // Keep the intro visible even when Android's system animation scale is disabled.
+            // In that case it appears as a clean, static splash and still dismisses on schedule.
+            mainHandler.postDelayed(finishIntroRunnable, 2200);
         }
         else webView.restoreState(savedInstanceState);
     }
@@ -212,6 +213,12 @@ public final class MainActivity extends ComponentActivity {
         introContent.setTranslationY(dp(14));
         introContent.setScaleX(0.97f);
         introContent.setScaleY(0.97f);
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            introContent.setAlpha(1f);
+            introContent.setTranslationY(0f);
+            introContent.setScaleX(1f);
+            introContent.setScaleY(1f);
+        }
         introOverlay.addView(content, contentParams);
 
         TextView skip = introText("SKIP INTRO   ↗", 10, Color.rgb(202, 217, 191), true);
