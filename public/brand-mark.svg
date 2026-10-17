@@ -1,17 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ForgeRadar crystal radar mark">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ForgeRadar mark">
   <defs>
-    <linearGradient id="field" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#14233a"/><stop offset="1" stop-color="#080e19"/></linearGradient>
-    <linearGradient id="crystal" x1="18" y1="18" x2="40" y2="48" gradientUnits="userSpaceOnUse"><stop stop-color="#c1ffec"/><stop offset=".52" stop-color="#77d8c3"/><stop offset="1" stop-color="#42a995"/></linearGradient>
-    <linearGradient id="beam" x1="36" y1="29" x2="55" y2="18" gradientUnits="userSpaceOnUse"><stop stop-color="#ffb887" stop-opacity="0"/><stop offset="1" stop-color="#ffb887" stop-opacity=".8"/></linearGradient>
+    <linearGradient id="bg" x1="8" y1="4" x2="57" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#14233a"/><stop offset="1" stop-color="#080e19"/></linearGradient>
+    <linearGradient id="metal" x1="17" y1="16" x2="46" y2="49" gradientUnits="userSpaceOnUse"><stop stop-color="#d5fff3"/><stop offset=".48" stop-color="#86e4ce"/><stop offset="1" stop-color="#51bba9"/></linearGradient>
+    <linearGradient id="spark" x1="43" y1="9" x2="54" y2="23" gradientUnits="userSpaceOnUse"><stop stop-color="#ffe0b3"/><stop offset="1" stop-color="#ff956b"/></linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
   </defs>
-  <rect width="64" height="64" rx="19" fill="url(#field)"/>
-  <circle cx="32" cy="32" r="25.5" fill="none" stroke="#263b4e" stroke-width="1.2"/>
-  <path d="M13.9 24.2A25.5 25.5 0 0 1 48.8 12.8" fill="none" stroke="#466878" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M34.3 32 53.8 16.9A25.5 25.5 0 0 1 57 27.5Z" fill="url(#beam)"/>
-  <path d="M39.5 27.5a10.8 10.8 0 0 1 0 9M43.4 23.5a16.5 16.5 0 0 1 0 17M47.4 19.5a22.2 22.2 0 0 1 0 25" fill="none" stroke="#91e7d2" stroke-width="1.8" stroke-linecap="round"/>
-  <path d="m28.4 15.4 11.4 6.1 1.7 13.7-9.6 13.4-9.6-13.4L24 21.5Z" fill="url(#crystal)" stroke="#d4fff0" stroke-opacity=".72" stroke-width=".8" stroke-linejoin="round"/>
-  <path d="m28.4 15.4 3.5 17.8 8-11.7ZM21.9 35.2l10-2-9.6 13.4Z" fill="#eafff7" fill-opacity=".46"/>
-  <path d="m32 25.8 3.6 7.4-3.6 7.4-3.6-7.4Z" fill="#fff9eb"/>
-  <circle cx="53.7" cy="16.8" r="2.8" fill="#ffb887"/>
-  <circle cx="13.8" cy="24" r="1.7" fill="#9ce8d5"/>
+  <rect width="64" height="64" rx="19" fill="url(#bg)"/>
+  <path d="M16 49V17h31v8H25v6h18v8H25v10z" fill="#78d8c4" opacity=".16" filter="url(#glow)"/>
+  <path d="M16 49V17h31v8H25v6h18v8H25v10z" fill="url(#metal)"/>
+  <path d="M16 17h31l-4 4H20v28h-4z" fill="#e4fff7" opacity=".32"/>
+  <path d="m49 7 2.5 6.5L58 16l-6.5 2.5L49 25l-2.5-6.5L40 16l6.5-2.5z" fill="url(#spark)"/>
+  <circle cx="49" cy="16" r="2.1" fill="#fff3d8"/>
 </svg>
