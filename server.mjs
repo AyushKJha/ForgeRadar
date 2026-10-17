@@ -93,6 +93,16 @@ if(url.pathname==='/api/account/login'||url.pathname==='/api/account/register'){
  res.setHeader('Set-Cookie',`forge_local=${token}; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=43200`);
  return send(200,{authenticated:true,user});
 }
+if(url.pathname==='/api/account/remote-auth'&&req.method==='POST'){
+ if(!bridgeAuthorized)return send(403,{error:'Authorized laptop bridge required'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>8192)return send(413,{error:'Request too large'});}
+ const body=JSON.parse(raw||'{}');let user;
+ if(body.action==='register'){try{user=jobStore.createUser(body.email,body.password,'member');}catch(error){return send(409,{error:error.message||'Account could not be created'});}}
+ else if(body.action==='login')user=jobStore.verifyUser(body.email,body.password);
+ else return send(400,{error:'Unknown account action'});
+ if(!user)return send(401,{error:'Incorrect email or password'});
+ return send(200,{user:{id:user.id,email:user.email,role:user.role}});
+}
 if(url.pathname==='/api/account/logout'&&req.method==='POST'){if(req.headers.origin&&req.headers.origin!==requestOrigin)return send(403,{error:'Origin rejected'});jobStore.destroySession(sessionToken);res.setHeader('Set-Cookie',`forge_local=; HttpOnly; SameSite=Strict; ${fromTailnet?'Secure; ':''}Path=/; Max-Age=0`);return send(200,{ok:true});}
 if(url.pathname==='/api/account/domains'&&req.method==='GET'){if(!account)return send(401,{error:'Sign in first'});return send(200,{domains});}
 if(url.pathname==='/api/account/github-identity'&&req.method==='GET'){

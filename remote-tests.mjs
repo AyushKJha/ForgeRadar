@@ -13,12 +13,26 @@ r=await fetch(url+'/bridge',{method:'POST',body:'{}'});assert.equal(r.status,401
 r=await fetch(url+'/login',{method:'POST',headers:{Origin:'https://evil.example'},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,403);
 r=await fetch(url+'/login',{method:'POST',headers:{Origin:url,Accept:'application/json'},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,200);assert.equal((await r.json()).ok,true);assert.match(r.headers.get('set-cookie'),/forge_session=[a-f0-9]{64}\.[a-f0-9]+\.[a-f0-9]{64}; HttpOnly; Secure; SameSite=Strict/);
 r=await fetch(url+'/login.js');assert.equal(r.status,200);assert.match(await r.text(),/preventDefault/);
+ r=await fetch(url+'/');assert.equal(r.status,200);const loginPage=await r.text();assert.match(loginPage,/Create an account/);assert.match(loginPage,/id="toRegister"/);assert.match(loginPage,/shared ForgeRadar workshop/);assert.match(loginPage,/src="\/login\.js"/);
 r=await fetch(url+'/login',{method:'POST',redirect:'manual',headers:{Origin:url},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,303);const cookie=r.headers.get('set-cookie').split(';')[0];assert.match(r.headers.get('set-cookie'),/HttpOnly; Secure; SameSite=Strict/);
 r=await fetch(url+'/project-analytics.js',{headers:{Cookie:cookie}});assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);assert.match(await r.text(),/export function projectAnalytics/);
 r=await fetch(url+'/api/mission',{method:'POST',headers:{Cookie:cookie,Origin:url,'Content-Type':'application/json'},body:'{"kind":"discover"}'});assert.equal(r.status,503);
 const snapshot={state:{busy:false,projects:[]},machine:{machine:{status:'idle'},events:[]},models:{connected:true,models:['test']}};
 const bridge=body=>fetch(url+'/bridge',{method:'POST',headers:{Authorization:'Bearer '+process.env.FORGERADAR_BRIDGE_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({...snapshot,...body})});
 r=await bridge({});assert.equal(r.status,200);
+ r=await fetch(url+'/api/account/register',{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({email:'new@example.test',password:'long-password-123',inviteKey:'wrong'})});assert.equal(r.status,403);
+ const registerRequest=fetch(url+'/api/account/register',{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({email:'new@example.test',password:'long-password-123',inviteKey:process.env.FORGERADAR_ADMIN_PASSWORD})});
+ let authRequest;for(let retry=0;retry<30;retry++){r=await bridge({wait:false});authRequest=(await r.json()).authRequest;if(authRequest)break;await new Promise(resolve=>setTimeout(resolve,10));}
+ assert.equal(authRequest.action,'register');assert.equal(authRequest.email,'new@example.test');assert.equal(authRequest.password,'long-password-123');
+ r=await bridge({wait:false,authResult:{id:authRequest.id,ok:true,result:{user:{id:'user-1',email:'new@example.test',role:'member'}}}});assert.equal(r.status,200);
+ r=await registerRequest;assert.equal(r.status,200);assert.equal((await r.json()).user.email,'new@example.test');assert.match(r.headers.get('set-cookie'),/HttpOnly; Secure; SameSite=Strict/);
+ const loginRequest=fetch(url+'/api/account/login',{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({email:'new@example.test',password:'long-password-123'})});
+ authRequest=null;for(let retry=0;retry<30;retry++){r=await bridge({wait:false});authRequest=(await r.json()).authRequest;if(authRequest)break;await new Promise(resolve=>setTimeout(resolve,10));}
+ assert.equal(authRequest.action,'login');assert.equal(authRequest.email,'new@example.test');
+ await bridge({wait:false,authResult:{id:authRequest.id,ok:true,result:{user:{id:'user-1',email:'new@example.test',role:'member'}}}});r=await loginRequest;assert.equal(r.status,200);
+ const rejectedLogin=fetch(url+'/api/account/login',{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({email:'new@example.test',password:'long-password-123'})});
+ authRequest=null;for(let retry=0;retry<30;retry++){r=await bridge({wait:false});authRequest=(await r.json()).authRequest;if(authRequest)break;await new Promise(resolve=>setTimeout(resolve,10));}
+ await bridge({wait:false,authResult:{id:authRequest.id,ok:false,status:401,message:'Incorrect email or password'}});r=await rejectedLogin;assert.equal(r.status,401);
 r=await fetch(url+'/api/mission',{method:'POST',headers:{Cookie:cookie,Origin:'https://evil.example'},body:'{}'});assert.equal(r.status,403);
 r=await fetch(url+'/api/mission',{method:'POST',headers:{Cookie:cookie,Origin:url,'Content-Type':'application/json'},body:'{"kind":"discover"}'});assert.equal(r.status,202);
 r=await bridge({});const {command}=await r.json();assert.equal(command.body.kind,'discover');

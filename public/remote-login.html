@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#080c16">
-  <title>ForgeRadar · Enter the workshop</title><link rel="icon" type="image/svg+xml" href="/brand-mark.svg?v=7">
+  <meta name="theme-color" content="#071413">
+  <title>ForgeRadar · Enter the workshop</title>
+  <link rel="icon" type="image/svg+xml" href="/brand-mark.svg?v=7">
   <link rel="stylesheet" href="/login.css">
   <link rel="stylesheet" href="/eclipse-preview.css">
   <link rel="stylesheet" href="/remote-login.css">
@@ -12,18 +13,20 @@
 </head>
 <body class="entry-page">
   <div class="entry-atmosphere" aria-hidden="true"><div class="entry-orb"></div><div class="entry-horizon"></div></div>
-  <header class="entry-header"><a class="entry-brand" href="/" aria-label="ForgeRadar home"><img class="entry-brand-mark" src="/brand-mark.svg?v=7" alt="" width="34" height="34"><span>ForgeRadar</span></a><span class="entry-header-note"><i aria-hidden="true"></i> PRIVATE OWNER ACCESS</span></header>
+  <header class="entry-header"><a class="entry-brand" href="/" aria-label="ForgeRadar home"><img class="entry-brand-mark" src="/brand-mark.svg?v=7" alt="" width="34" height="34"><span>ForgeRadar</span></a><span class="entry-header-note"><i aria-hidden="true"></i> PRIVATE WORKSHOP</span></header>
   <main class="entry-main">
     <section class="entry-copy" aria-labelledby="entryHeadline"><p class="eyebrow"><span class="eyebrow-line"></span> YOUR IDEAS HAVE A PLACE TO GO</p><h1 id="entryHeadline">From a spark<br>to something <em>real.</em></h1><p class="entry-description">Discover meaningful problems, shape a project, and build it with local AI support. Your work begins here.</p><div class="entry-path" aria-label="How ForgeRadar works"><span><b>01</b> Discover</span><i></i><span><b>02</b> Develop</span><i></i><span><b>03</b> Deliver</span></div></section>
-    <section class="auth-card" aria-label="Owner access">
+    <section class="auth-card" id="authCard" data-mode="login" aria-label="ForgeRadar account access">
       <div class="auth-window" aria-hidden="true"><span></span><span></span><span></span><p>FORGERADAR / ACCESS PORTAL</p></div>
       <div class="auth-stage">
-        <div class="auth-face"><p class="face-kicker">WELCOME BACK</p><h2>Sign in<span class="heading-dot">.</span></h2><p class="face-description">Open your private workshop dashboard.</p><form method="post" action="/login"><label for="password">Workshop password</label><input id="password" name="password" type="password" autocomplete="current-password" required><button class="submit-button" type="submit">Enter workshop <span aria-hidden="true">↗</span></button></form><p class="face-switch">Personal profiles and local AI run on your laptop.</p></div>
-        <div class="auth-blade" aria-hidden="true"><div class="blade-noise"></div><div class="blade-eclipse"><div class="blade-core"></div></div><div class="blade-copy blade-copy-login"><span class="blade-index">01 / YOUR WORKSPACE</span><h3>Welcome<br><em>back.</em></h3><p>Your ideas, drafts, and progress are ready where you left them.</p></div><span class="blade-footer">DISCOVER • BUILD • PUBLISH WITH APPROVAL</span></div>
+        <div class="auth-face auth-face-login" id="loginFace"><p class="face-kicker">WELCOME BACK</p><h2>Sign in<span class="heading-dot">.</span></h2><p class="face-description">Pick up where your next idea left off.</p><form id="loginForm" autocomplete="on"><label for="loginEmail">Email address</label><input id="loginEmail" name="email" type="email" autocomplete="username" placeholder="you@example.com" maxlength="254" required><label for="loginPassword">Password</label><div class="password-wrap"><input id="loginPassword" name="password" type="password" autocomplete="current-password" maxlength="256" required><button class="reveal" type="button" aria-label="Show password" aria-pressed="false">Show</button></div><button class="submit-button" type="submit">Enter workshop <span aria-hidden="true">↗</span></button></form><p class="face-switch">Have an invite? <button id="toRegister" type="button">Create an account</button></p></div>
+        <div class="auth-face auth-face-register" id="registerFace" inert aria-hidden="true"><p class="face-kicker">A NEW BEGINNING</p><h2>Create account<span class="heading-dot">.</span></h2><p class="face-description">Join this host's shared ForgeRadar workshop.</p><form id="registerForm" autocomplete="on"><label for="registerEmail">Email address</label><input id="registerEmail" name="email" type="email" autocomplete="username" placeholder="you@example.com" maxlength="254" required><label for="registerPassword">Password <small>12 characters minimum</small></label><div class="password-wrap"><input id="registerPassword" name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required><button class="reveal" type="button" aria-label="Show password" aria-pressed="false">Show</button></div><label for="inviteKey">Workshop invitation key</label><div class="password-wrap"><input id="inviteKey" name="inviteKey" type="password" autocomplete="off" required><button class="reveal" type="button" aria-label="Show invitation key" aria-pressed="false">Show</button></div><button class="submit-button" type="submit">Create account <span aria-hidden="true">↗</span></button></form><p class="face-switch">Already joined? <button id="toLogin" type="button">Sign in</button></p></div>
+        <div class="auth-blade" aria-hidden="true"><div class="blade-noise"></div><div class="blade-eclipse"><div class="blade-core"></div></div><div class="blade-copy blade-copy-login"><span class="blade-index">01 / YOUR WORKSPACE</span><h3>Welcome<br><em>back.</em></h3><p>Your ideas, drafts, and progress are ready where you left them.</p></div><div class="blade-copy blade-copy-register"><span class="blade-index">00 / THE FIRST STEP</span><h3>Start<br><em>something.</em></h3><p>Join the host's workshop with an invitation.</p></div><span class="blade-footer">DISCOVER • BUILD • PUBLISH WITH APPROVAL</span></div>
       </div>
       <p id="loginNotice" class="auth-notice" role="status" aria-live="polite"></p>
+      <p class="remote-privacy">Invited accounts share the host's workshop. Account credentials and project data are stored on the host laptop, which must be online to sign in or create an account.</p>
     </section>
   </main>
-  <footer class="entry-footer"><span>FORGERADAR © 2026</span><span>Your local AI and personal profile stay on your host computer. This address connects to the owner dashboard.</span></footer>
+  <footer class="entry-footer"><span>FORGERADAR © 2026</span><span>Your profile and projects stay on the host computer. This address securely connects to its workshop.</span></footer>
 </body>
 </html>
