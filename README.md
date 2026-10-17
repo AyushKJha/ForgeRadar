@@ -4,6 +4,8 @@
 
 **Hosted owner dashboard:** [forgeradar.onrender.com](https://forgeradar.onrender.com/). It uses the Eclipse sign-in page and requires the workshop password. The V3 account and profile workspace currently runs on the owner's laptop at `http://127.0.0.1:4317/`; it is not hosted on Render.
 
+The [Android source](android/README.md) is a secure mobile shell for the hosted owner dashboard. No APK has been built or device-tested in this checkout; that requires the Android SDK and its license. The Android app uses the live site and cannot run the laptop's local AI when the worker is offline.
+
 A local agent system for discovering software ideas, evaluating who would use them, proposing projects, building offline prototypes or persistent Node + SQLite applications, and syncing each approved project to its own private GitHub repository.
 
 Discovery includes **unbuilt community ideas**, unmet needs and improvements to existing tools. A popular existing repository is context, not automatic proof that copying it would be worthwhile. Novelty remains unverified until researched, and a limited search cannot prove that no product exists.
