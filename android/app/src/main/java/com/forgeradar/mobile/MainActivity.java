@@ -1,6 +1,7 @@
 package com.forgeradar.mobile;
 
-import android.app.Activity;
+import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -20,7 +21,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends ComponentActivity {
     private static final String HOME = "https://forgeradar.onrender.com/";
     private static final String HOST = "forgeradar.onrender.com";
     private WebView webView;
@@ -108,6 +109,12 @@ public final class MainActivity extends Activity {
         errorPanel.setVisibility(View.GONE);
         frame.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
         setContentView(frame);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() {
+                if (webView.canGoBack()) webView.goBack();
+                else finish();
+            }
+        });
         if (savedInstanceState == null) webView.loadUrl(HOME);
         else webView.restoreState(savedInstanceState);
     }
@@ -115,11 +122,6 @@ public final class MainActivity extends Activity {
     @Override public void onSaveInstanceState(Bundle state) {
         webView.saveState(state);
         super.onSaveInstanceState(state);
-    }
-
-    @Override public void onBackPressed() {
-        if (webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
     }
 
     @Override public void onDestroy() {

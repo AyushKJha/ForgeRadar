@@ -4,7 +4,7 @@ This Android app opens the existing protected ForgeRadar website at `https://for
 
 ## Build
 
-Install JDK 17, the Android SDK platform 36 and build tools 36.0.0, and Gradle 9.6.0. Open this `android` folder in Android Studio or run `gradle :app:assembleDebug` from it. The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Android SDK licenses must be accepted by the person installing the SDK. No paid service is required.
+Install JDK 17, the Android SDK platform 36 and build tools 36.0.0, and Gradle 9.6.0. Open this `android` folder in Android Studio or run `gradle :app:assembleDebug :app:lintDebug` from it. The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Android SDK licenses must be accepted by the person installing the SDK. No paid service is required. The app icon and website favicon share the Eclipse mark and palette.
 
 ## Security and scope
 

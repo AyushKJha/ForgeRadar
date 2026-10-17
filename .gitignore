@@ -6,3 +6,7 @@ projects/
 *.log
 node_modules/
 .sites-runtime/
+.android-build-tools/
+android/.gradle/
+android/app/build/
+*.apk

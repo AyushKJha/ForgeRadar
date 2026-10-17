@@ -60,10 +60,22 @@ body[data-view]:not([data-view=mission]) .project-analytics{display:none}
 :root[data-theme=eclipse] .agent-node:hover{transform:translateY(-3px);box-shadow:var(--neo-raised)}
 :root[data-theme=eclipse] .cosmic-hero{box-shadow:var(--neo-raised);border-color:#56506866;border-radius:22px}
 :root[data-theme=eclipse] .prompt-suggestions button,:root[data-theme=eclipse] .hero-actions button{box-shadow:5px 6px 12px #02050e80,-3px -3px 8px #3439512b}
+:root[data-theme=eclipse] .brand-mark,:root[data-theme=eclipse] .entry-brand-mark{display:block;object-fit:contain;border:0;border-radius:10px;filter:drop-shadow(0 4px 8px #02050ea0)}
+:root[data-theme=eclipse] nav button{border-radius:15px;transition:transform .24s ease,background .24s ease,box-shadow .24s ease}
+:root[data-theme=eclipse] nav button:hover{transform:translateX(3px);box-shadow:5px 6px 13px #02050e88,-3px -3px 8px #34395125}
+:root[data-theme=eclipse] nav .active{box-shadow:var(--neo-inset)}
+:root[data-theme=eclipse] .header-controls button,:root[data-theme=eclipse] .prompt-suggestions button{border-radius:13px;box-shadow:var(--neo-raised)}
+:root[data-theme=eclipse] .header-controls button:active,:root[data-theme=eclipse] .prompt-suggestions button:active{transform:translateY(1px);box-shadow:var(--neo-inset)}
+:root[data-theme=eclipse] .cosmic-scene .planet{animation:eclipse-float 10s ease-in-out infinite}
+:root[data-theme=eclipse] .cosmic-scene .scene-label{animation:eclipse-label 7s ease-in-out infinite}
+:root[data-theme=eclipse] .cosmic-scene .label-two{animation-delay:-2s}
+:root[data-theme=eclipse] .cosmic-scene .label-three{animation-delay:-4s}
+@keyframes eclipse-float{0%,100%{translate:0 0}50%{translate:0 -9px}}
+@keyframes eclipse-label{0%,100%{translate:0 0}50%{translate:0 -5px}}
 @keyframes neo-ring-pop{from{opacity:.2;transform:scale(.72) rotate(-35deg)}to{opacity:1;transform:scale(1) rotate(0)}}
 @keyframes neo-bar{to{transform:scaleY(1)}}
 @keyframes neo-weight{to{transform:scaleX(1)}}
 @media(max-width:1100px){.analytics-overview,.analytics-stages,.analytics-weight,.analytics-projects{grid-column:span 6}.analytics-gauge{width:96px;height:96px}}
 @media(max-width:760px){.analytics-head{align-items:flex-start}.analytics-live{font-size:8px;padding:8px 9px}.analytics-grid{gap:14px}.analytics-overview,.analytics-stages,.analytics-weight,.analytics-projects{grid-column:1/-1}.analytics-tile{padding:19px}.analytics-gauge{width:108px;height:108px}.stage-chart{gap:7px;padding-inline:9px}.weight-row{grid-template-columns:99px minmax(0,1fr) 31px}}
 @media(max-width:380px){.analytics-head{flex-wrap:wrap}.stage-label{font-size:9px}.analytics-gauge{width:94px;height:94px}}
-@media(prefers-reduced-motion:reduce){.analytics-tile{opacity:1;transform:none;transition:none}.analytics-gauge{animation:none!important}.stage-bar,.weight-rail i{transform:none!important;animation:none!important}.summary>div,.agent-node{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.analytics-tile{opacity:1;transform:none;transition:none}.analytics-gauge,.cosmic-scene .planet,.cosmic-scene .scene-label{animation:none!important}.stage-bar,.weight-rail i{transform:none!important;animation:none!important}.summary>div,.agent-node,nav button{transition:none!important}}
