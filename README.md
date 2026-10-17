@@ -4,7 +4,7 @@
 
 **Hosted dashboard:** [forgeradar.onrender.com](https://forgeradar.onrender.com/). Its Eclipse sign-in page supports the owner password and invited accounts. Invited accounts share the owner's workshop; authentication is checked against the owner's laptop, which must be online. Password hashes and project data stay in the laptop's local SQLite store; the hosted page is a protected gateway, not an independent multi-tenant cloud service.
 
-The [Android source](android/README.md) is a secure mobile shell for the hosted owner dashboard. No APK has been built or device-tested in this checkout; that requires the Android SDK and its license. The Android app uses the live site and cannot run the laptop's local AI when the worker is offline.
+The [Android source](android/README.md) is a secure mobile shell for the hosted owner dashboard. A debug APK is built at `ForgeRadar-Android-debug.apk` and mirrored at `public/download/ForgeRadar-Android-debug.apk`; it includes an Eclipse-themed native intro and the current FR app mark. It has been compiled and signed locally, but not installed on a physical device in this checkout. The Android app uses the live site and cannot run the laptop's local AI when the worker is offline.
 
 A local agent system for discovering software ideas, evaluating who would use them, proposing projects, building offline prototypes or persistent Node + SQLite applications, and syncing each approved project to its own private GitHub repository.
 
