@@ -2,11 +2,12 @@ import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {validateSpec} from './app-kit.mjs';
 import {projectPackageName} from './project-presentation.mjs';
+import {normalizeProjectDesign,designStylesheet} from './project-design.mjs';
 
-export async function compileApp(spec,root){
- spec=validateSpec(spec);const files=[{path:'app.json',content:JSON.stringify(spec,null,2)},{path:'package.json',content:JSON.stringify({name:projectPackageName(spec.title),private:true,type:'module',engines:{node:'>=24'},scripts:{start:'node server.mjs',test:'node --test app.test.mjs'}},null,2)},{path:'.gitignore',content:'data/\n.env\n.env.*\nnode_modules/\n'},{path:'.env.example',content:'HOST=127.0.0.1\nPORT=4320\n# Required when HOST is not loopback. Set in your hosting environment, never commit.\nAPP_PASSWORD=\n'}];
+export async function compileApp(spec,root,design={}){
+ spec=validateSpec(spec);design=normalizeProjectDesign(design);const files=[{path:'app.json',content:JSON.stringify(spec,null,2)},{path:'design.json',content:JSON.stringify(design,null,2)},{path:'package.json',content:JSON.stringify({name:projectPackageName(spec.title),private:true,type:'module',engines:{node:'>=24'},scripts:{start:'node server.mjs',test:'node --test app.test.mjs'}},null,2)},{path:'.gitignore',content:'data/\n.env\n.env.*\nnode_modules/\n'},{path:'.env.example',content:'HOST=127.0.0.1\nPORT=4320\n# Required when HOST is not loopback. Set in your hosting environment, never commit.\nAPP_PASSWORD=\n'}];
  files.push({path:'app-kit.mjs',content:await readFile(path.join(root,'app-kit.mjs'),'utf8')});
- for(const name of ['workspace.html','workspace.js','workspace.css'])files.push({path:name,content:await readFile(path.join(root,'public',name),'utf8')});
+ for(const name of ['workspace.html','workspace.js','workspace.css']){let content=await readFile(path.join(root,'public',name),'utf8');if(name==='workspace.html')content=content.replace('<body>','<body data-style="'+design.style+'" data-palette="'+design.palette+'" data-motion="'+design.motion+'">');if(name==='workspace.css')content+='\n'+designStylesheet(design);files.push({path:name,content});}
  files.push({path:'server.mjs',content:standaloneServer},{path:'app.test.mjs',content:standaloneTests});return files;
 }
 const standaloneServer=`import http from 'node:http';

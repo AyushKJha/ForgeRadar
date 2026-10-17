@@ -50,3 +50,4 @@ main{width:calc(100% - 206px);padding:28px 34px 30px;max-width:1700px}header{pad
 .v3-research .research-records article{padding:14px;border:1px solid rgba(180,155,225,.2);border-radius:14px;background:rgba(20,16,38,.4)}
 .v3-research .research-records h3{margin:.5rem 0;font-size:1rem}
 .v3-research .research-records p{margin:.4rem 0}
+.project-design-selectors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%;padding:15px;border:1px solid #ffffff23;border-radius:18px;background:linear-gradient(145deg,#15212c,#111923);box-shadow:inset 5px 5px 12px #080e17,inset -4px -4px 12px #ffffff08}.project-design-selectors label{font-size:12px}.project-design-selectors select{display:block;min-width:0;width:100%;margin-top:5px}@media(max-width:620px){.project-design-selectors{grid-template-columns:1fr}}

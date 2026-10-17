@@ -2,6 +2,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,chmodSync} from 'node:fs';
 import {createHash,randomBytes,scryptSync,timingSafeEqual,randomUUID} from 'node:crypto';
 import path from 'node:path';
+import {normalizeProjectDesign} from './project-design.mjs';
 
 const migrations=[
   `CREATE TABLE IF NOT EXISTS jobs (
@@ -150,7 +151,8 @@ const migrations=[
     error TEXT,
     started_at TEXT NOT NULL,
     finished_at TEXT
-  );`
+  );`,
+  `ALTER TABLE v3_projects ADD COLUMN design_json TEXT;`
 ];
 
 export function openV3Store(filename){
@@ -200,10 +202,10 @@ export function openV3Store(filename){
   const appearanceByUser=db.prepare('SELECT theme,reduced_motion AS reducedMotion,updated_at AS updatedAt FROM user_appearance WHERE user_id=?');
   const upsertAppearance=db.prepare('INSERT INTO user_appearance (user_id,theme,reduced_motion,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET theme=excluded.theme,reduced_motion=excluded.reduced_motion,updated_at=excluded.updated_at');
   const insertProject=db.prepare("INSERT INTO v3_projects (id,user_id,title,problem,goal,success_metric,scope,source_url,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,'proposal',?,?)");
-  const projectById=db.prepare('SELECT id,user_id AS userId,title,problem,goal,success_metric AS successMetric,scope,source_url AS sourceUrl,status,created_at AS createdAt,updated_at AS updatedAt FROM v3_projects WHERE id=? AND user_id=?');
-  const projectsByUser=db.prepare('SELECT id,user_id AS userId,title,problem,goal,success_metric AS successMetric,scope,source_url AS sourceUrl,status,created_at AS createdAt,updated_at AS updatedAt FROM v3_projects WHERE user_id=? ORDER BY updated_at DESC');
+  const projectById=db.prepare('SELECT id,user_id AS userId,title,problem,goal,success_metric AS successMetric,scope,source_url AS sourceUrl,status,design_json AS designJson,created_at AS createdAt,updated_at AS updatedAt FROM v3_projects WHERE id=? AND user_id=?');
+  const projectsByUser=db.prepare('SELECT id,user_id AS userId,title,problem,goal,success_metric AS successMetric,scope,source_url AS sourceUrl,status,design_json AS designJson,created_at AS createdAt,updated_at AS updatedAt FROM v3_projects WHERE user_id=? ORDER BY updated_at DESC');
   const updateProject=db.prepare("UPDATE v3_projects SET title=?,problem=?,goal=?,success_metric=?,scope=?,updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
-  const approveProject=db.prepare("UPDATE v3_projects SET status='approved',updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
+  const approveProject=db.prepare("UPDATE v3_projects SET status='approved',design_json=?,updated_at=? WHERE id=? AND user_id=? AND status='proposal'");
   const insertTask=db.prepare("INSERT INTO v3_tasks (id,project_id,title,description,acceptance,evidence,status,priority,estimate_hours,due_date,created_at,updated_at) VALUES (?,?,?,?,?,NULL,'todo',?,?,?,?,?)");
   const taskById=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,estimate_hours AS estimateHours,due_date AS dueDate,archived_at AS archivedAt,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE id=? AND project_id=?');
   const tasksByProject=db.prepare('SELECT id,project_id AS projectId,title,description,acceptance,evidence,status,priority,estimate_hours AS estimateHours,due_date AS dueDate,archived_at AS archivedAt,created_at AS createdAt,updated_at AS updatedAt FROM v3_tasks WHERE project_id=? ORDER BY created_at');
@@ -262,11 +264,11 @@ export function openV3Store(filename){
     deleteFeedback(userId,canonicalUrl){return Number(deleteFeedback.run(userId,canonicalUrl).changes);},
     appearance(userId){const item=appearanceByUser.get(userId);return item?{theme:item.theme,reducedMotion:Boolean(item.reducedMotion),updatedAt:item.updatedAt}:{theme:'eclipse',reducedMotion:false,updatedAt:null};},
     saveAppearance(userId,theme,reducedMotion){if(theme!=='eclipse'||typeof reducedMotion!=='boolean')throw new Error('Invalid appearance settings');upsertAppearance.run(userId,theme,Number(reducedMotion),new Date().toISOString());return this.appearance(userId);},
-    createProject(userId,input){const now=new Date().toISOString(),id=randomUUID();insertProject.run(id,userId,input.title,input.problem,input.goal,input.successMetric,input.scope,input.sourceUrl||null,now,now);return projectById.get(id,userId);},
-    project(userId,id){return projectById.get(id,userId)||null;},
-    projects(userId){return projectsByUser.all(userId);},
-    editProject(userId,id,input){if(!updateProject.run(input.title,input.problem,input.goal,input.successMetric,input.scope,new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return projectById.get(id,userId);},
-    approveProject(userId,id){if(!approveProject.run(new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return projectById.get(id,userId);},
+    createProject(userId,input){const now=new Date().toISOString(),id=randomUUID();insertProject.run(id,userId,input.title,input.problem,input.goal,input.successMetric,input.scope,input.sourceUrl||null,now,now);return this.project(userId,id);},
+    project(userId,id){const row=projectById.get(id,userId);return row?{...row,design:row.designJson?JSON.parse(row.designJson):null}:null;},
+    projects(userId){return projectsByUser.all(userId).map(row=>({...row,design:row.designJson?JSON.parse(row.designJson):null}));},
+    editProject(userId,id,input){if(!updateProject.run(input.title,input.problem,input.goal,input.successMetric,input.scope,new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return this.project(userId,id);},
+    approveProject(userId,id,design){design=normalizeProjectDesign(design);if(!approveProject.run(JSON.stringify(design),new Date().toISOString(),id,userId).changes)throw new Error('Draft proposal unavailable');return this.project(userId,id);},
     createTask(userId,projectId,input){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');const now=new Date().toISOString(),id=randomUUID();insertTask.run(id,projectId,input.title,input.description,input.acceptance,input.priority,input.estimateHours??null,input.dueDate??null,now,now);appendTaskEvent.run(randomUUID(),id,'created',input.title,now);return {...taskById.get(id,projectId),dependencies:[]};},
     tasks(userId,projectId){if(!projectById.get(projectId,userId))throw new Error('Project unavailable');return tasksByProject.all(projectId).map(item=>({...item,dependencies:dependenciesByTask.all(item.id).map(row=>row.id)}));},
     taskHistory(userId,projectId,id){if(!projectById.get(projectId,userId)||!taskById.get(id,projectId))throw new Error('Task unavailable');return taskEvents.all(id);},

@@ -2,7 +2,7 @@ import {readdir,lstat,readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 
-const allowed=new Set(['app.json','package.json','.gitignore','.env.example','app-kit.mjs','workspace.html','workspace.js','workspace.css','server.mjs','app.test.mjs','README.md']);
+const allowed=new Set(['app.json','design.json','package.json','.gitignore','.env.example','app-kit.mjs','workspace.html','workspace.js','workspace.css','server.mjs','app.test.mjs','README.md']);
 const secretPatterns=[/(?:ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[A-Za-z0-9_]{20,}/i,/sk-proj-[A-Za-z0-9_-]{20,}/i,/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,/(?:password|secret|api[_-]?key|token)\s*[:=]\s*["']?[A-Za-z0-9/+_-]{16,}/i];
 const platformBrand=/forgeradar|chatgpt(?:\.com)?|codex(?:\.openai\.com)?/i;
 
