@@ -13,6 +13,7 @@ r=await fetch(url+'/login',{method:'POST',headers:{Origin:'https://evil.example'
 r=await fetch(url+'/login',{method:'POST',headers:{Origin:url,Accept:'application/json'},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,200);assert.equal((await r.json()).ok,true);assert.match(r.headers.get('set-cookie'),/forge_session=[a-f0-9]{64}\.[a-f0-9]+\.[a-f0-9]{64}; HttpOnly; Secure; SameSite=Strict/);
 r=await fetch(url+'/login.js');assert.equal(r.status,200);assert.match(await r.text(),/preventDefault/);
 r=await fetch(url+'/login',{method:'POST',redirect:'manual',headers:{Origin:url},body:'password='+process.env.FORGERADAR_ADMIN_PASSWORD});assert.equal(r.status,303);const cookie=r.headers.get('set-cookie').split(';')[0];assert.match(r.headers.get('set-cookie'),/HttpOnly; Secure; SameSite=Strict/);
+r=await fetch(url+'/project-analytics.js',{headers:{Cookie:cookie}});assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/javascript/);assert.match(await r.text(),/export function projectAnalytics/);
 r=await fetch(url+'/api/mission',{method:'POST',headers:{Cookie:cookie,Origin:url,'Content-Type':'application/json'},body:'{"kind":"discover"}'});assert.equal(r.status,503);
 const snapshot={state:{busy:false,projects:[]},machine:{machine:{status:'idle'},events:[]},models:{connected:true,models:['test']}};
 const bridge=body=>fetch(url+'/bridge',{method:'POST',headers:{Authorization:'Bearer '+process.env.FORGERADAR_BRIDGE_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({...snapshot,...body})});
