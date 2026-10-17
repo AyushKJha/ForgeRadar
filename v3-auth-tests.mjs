@@ -106,5 +106,11 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     const localToken=JSON.parse(await readFile(path.join(directory,'local-service-token.json'),'utf8')).token;
     assert.equal((await request('GET','/api/state',null,null,'Bearer '+localToken)).status,200);
     assert.equal((await request('GET','/api/state',null,null,'Bearer wrong')).status,401);
+    assert.equal((await request('POST','/api/account/remote-auth',{action:'register',email:'remote@example.test',password:'a-long-remote-password'})).status,403);
+    const remoteMember=await request('POST','/api/account/remote-auth',{action:'register',email:'remote@example.test',password:'a-long-remote-password'},null,'Bearer '+localToken);
+    assert.equal(remoteMember.status,200);assert.equal(remoteMember.body.user.role,'member');
+    assert.equal((await request('POST','/api/account/remote-auth',{action:'register',email:'remote@example.test',password:'a-long-remote-password'},null,'Bearer '+localToken)).status,409);
+    assert.equal((await request('POST','/api/account/remote-auth',{action:'login',email:'remote@example.test',password:'a-long-remote-password'},null,'Bearer '+localToken)).status,200);
+    assert.equal((await request('POST','/api/account/remote-auth',{action:'unknown'},null,'Bearer '+localToken)).status,400);
   }finally{await new Promise(resolve=>server.close(resolve));closeLocalRuntime();delete process.env.FORGERADAR_DATA_DIR;await rm(directory,{recursive:true,force:true});}
 });
