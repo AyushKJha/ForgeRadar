@@ -32,6 +32,8 @@ On Windows, run `./start.ps1` in PowerShell. It launches the engine in the backg
 
 Alternatively, start Ollama separately and run `node server.mjs`.
 
+`./start.ps1` also starts validated, completed Node/SQLite project sites on separate loopback ports. Their current addresses are recorded in the private `data/local-project-ports.json`; use **Projects → Open site in new tab** for an authenticated preview within ForgeRadar. A GitHub repository holds source code but does not keep its `localhost` server running. The standalone project links work only while this laptop and those project processes are on.
+
 ### V3 local accounts and profile
 
 Open the local address and sign in. On the existing owner's laptop, the first owner account is `owner@forgeradar.local` with the existing workshop password; the password is hashed in the local SQLite database. On a clean installation without prior deployment credentials, the first registered account becomes the owner. Other local accounts have separate private profile rows and cannot access the legacy owner workspace or its project APIs. The existing remote Render dashboard still has its separate owner password; member profiles are local until the V3 remote-access phase is complete.
@@ -86,6 +88,8 @@ The engine reuses Git Credential Manager credentials saved for github.com, or an
 The platform source repository is public **AyushKJha/ForgeRadar**. Run `node platform-sync.mjs "Describe the source changes"` only when the owner has approved publishing the source changes. Runtime data, models, generated projects and environment files are excluded.
 
 Generated projects use separate private repositories. Only the explicit code/document allowlist is uploaded; logs, local state and credentials are not included. Unchanged snapshots do not create commits. Publishing to an existing unrelated repository is refused.
+
+New project repositories use a readable title with an initial capital letter and no platform prefix or generated ID. Their README includes a project-specific illustrated banner, honest implemented scope, tested local startup steps, and limitations. Private sync does not grant public visibility; a public release still requires the owner's separate final review and confirmation. Existing public repositories are not silently updated by the daily private sync.
 
 ## Automation
 

@@ -1,0 +1,25 @@
+const words=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').match(/[A-Za-z0-9]+/g)||[];
+const omitted=new Set(['forgeradar','generated','code']);
+const significant=value=>words(value).filter(word=>!omitted.has(word.toLowerCase()));
+const acronyms=new Set(['ai','api','ml','iot','csv','json','sql','ui','ux','soc','siem']);
+export function projectRepoName(title){
+  const parts=significant(title).map(word=>acronyms.has(word.toLowerCase())?word.toUpperCase():word[0].toUpperCase()+word.slice(1).toLowerCase());
+  const name=parts.join('-').slice(0,88).replace(/-+$/,'');
+  if(!name)throw new Error('A descriptive project title is required for its GitHub repository');
+  return name;
+}
+export function projectPackageName(title){return projectRepoName(title).toLowerCase();}
+const xml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
+export function projectBannerSvg(title){
+  const colors=[['#111526','#8eb7ff','#c8d6ff'],['#171b28','#ffc07a','#ffe3ba'],['#102321','#78dec1','#d0fff3'],['#241623','#e7a6d4','#ffe4f5']];
+  const index=[...String(title)].reduce((n,ch)=>n+ch.charCodeAt(0),0)%colors.length;
+  const [background,accent,soft]=colors[index];
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="${xml(title)} project banner"><defs><linearGradient id="surface" x2="1" y2="1"><stop stop-color="${background}"/><stop offset="1" stop-color="#080d16"/></linearGradient><radialGradient id="glow"><stop stop-color="${accent}" stop-opacity=".28"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient></defs><rect width="1200" height="300" rx="18" fill="url(#surface)"/><circle cx="950" cy="60" r="290" fill="url(#glow)"/><path d="M45 250H1155M850 32v220" stroke="${accent}" stroke-opacity=".35"/><circle cx="979" cy="137" r="86" fill="none" stroke="${accent}" stroke-width="2"/><circle cx="979" cy="137" r="53" fill="${background}" stroke="${soft}" stroke-opacity=".6"/><text x="56" y="70" fill="${accent}" font-size="17" font-family="Segoe UI,Arial,sans-serif" letter-spacing="4">INDEPENDENT PROJECT</text><text x="56" y="162" fill="#f7f9ff" font-size="48" font-family="Segoe UI,Arial,sans-serif" font-weight="700" textLength="${Math.min(730,Math.max(280,title.length*25))}" lengthAdjust="spacingAndGlyphs">${xml(title)}</text><text x="56" y="217" fill="${soft}" font-size="19" font-family="Segoe UI,Arial,sans-serif">Built to solve a specific problem. Reviewed before release.</text></svg>`;
+}
+export function fullstackReadme({title,problem,description,entities}){
+  const collections=entities.map(entity=>entity.label).join(', ');
+  return `# ${title}\n\n<img src="docs/banner.svg" alt="${title} project illustration" width="100%">\n\n${problem}\n\n${description}\n\n**Node.js 24+ · SQLite · Browser interface**\n\n## What works now\n\n- Create, search, edit and delete typed records for ${collections}.\n- Import CSV or JSON and export JSON.\n- Keep application records in a local SQLite database.\n- Run the included CRUD, validation and restart-persistence checks.\n\n## Run locally\n\nFrom this repository, run:\n\n\`\`\`sh\nnode server.mjs\n\`\`\`\n\nThen open http://127.0.0.1:4320. The address works only while this server is running on this computer. To run another local project at the same time, choose a different port; for example, in PowerShell run \`$env:PORT=4321; node server.mjs\` and open http://127.0.0.1:4321. On macOS/Linux run \`PORT=4321 node server.mjs\`.\n\nNo package installation or build step is required. Records live in \`data/app.sqlite\`, which is excluded from Git; back up \`data/\` to preserve them.\n\n## Validate\n\n\`\`\`sh\nnode --test app.test.mjs\n\`\`\`\n\nThese checks cover the generic data workspace. Review the project's domain-specific behavior and acceptance criteria separately in \`QA.md\`.\n\n## Scope and hosting\n\nThis is a single-owner data workspace. It does not implement external integrations, payments, multi-user roles or domain-specific algorithms beyond the generated collection schema. It has no public website deployment. For access outside this computer, use a private network or a reviewed host with HTTPS, a strong \`APP_PASSWORD\` and persistent storage; a source repository alone does not run the server.\n`;
+}
+export function prototypeReadme({title,problem,summary}){
+  return `# ${title}\n\n<img src="docs/banner.svg" alt="${title} project illustration" width="100%">\n\n${problem}\n\n${summary}\n\n## Try locally\n\nOpen \`index.html\` in a browser. This is an offline browser prototype; it does not need a server or package installation. Imported data stays in browser memory and may disappear on reload.\n\n## Validation\n\nJavaScript syntax and offline scope have been checked. Domain behavior and the acceptance items in \`QA.md\` still need human review.\n\n## Scope\n\nThis prototype does not include a production backend, accounts or live external integrations.\n`;
+}
