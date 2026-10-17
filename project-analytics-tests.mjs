@@ -9,7 +9,11 @@ test('analytics counts actual project states and never invents a score',()=>{
  assert.equal(result.rows[0].merit,75);
  assert.equal(result.rows[1].merit,null);
  assert.equal(result.weights.reduce((sum,row)=>sum+row.percent,0),100);
- assert.match(projectAnalyticsHTML(result),/Unscored/);
+ const html=projectAnalyticsHTML(result);
+ assert.match(html,/Unscored/);
+ assert.match(html,/data-bar-height="88"/);
+ assert.match(html,/data-ready-percent="25"/);
+ assert.doesNotMatch(html,/style=/);
 });
 
 test('analytics escapes user project titles in its dashboard HTML',()=>{
