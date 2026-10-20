@@ -109,6 +109,7 @@ test('local HTTP accounts isolate profiles and protect legacy owner APIs',async(
     assert.equal((await request('POST','/api/account/remote-auth',{action:'register',email:'remote@example.test',password:'a-long-remote-password'})).status,403);
     const remoteMember=await request('POST','/api/account/remote-auth',{action:'register',email:'remote@example.test',password:'a-long-remote-password'},null,'Bearer '+localToken);
     assert.equal(remoteMember.status,200);assert.equal(remoteMember.body.user.role,'member');
+    assert.match(remoteMember.body.sessionToken,/^[a-f0-9]{64}$/);
     assert.equal((await request('POST','/api/account/remote-auth',{action:'register',email:'remote@example.test',password:'a-long-remote-password'},null,'Bearer '+localToken)).status,409);
     assert.equal((await request('POST','/api/account/remote-auth',{action:'login',email:'remote@example.test',password:'a-long-remote-password'},null,'Bearer '+localToken)).status,200);
     assert.equal((await request('POST','/api/account/remote-auth',{action:'unknown'},null,'Bearer '+localToken)).status,400);

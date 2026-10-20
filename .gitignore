@@ -11,3 +11,7 @@ android/.gradle/
 android/app/build/
 *.apk
 !public/download/ForgeRadar-Android-debug.apk
+# One-off local source patch scripts are retained for recovery, not deployment.
+/refresh-application.mjs
+/review-application.mjs
+/upgrade-*.mjs

@@ -15,6 +15,8 @@ if (Test-Path -LiteralPath $taskPortsPath) {
 }
 $taskRecords = @()
 $taskReserved = @{}
+$taskListening = @{}
+Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $taskListening[[int]$_.LocalPort] = $true }
 foreach ($taskProject in @($taskState.projects | Where-Object { $_.buildMode -eq 'fullstack' -and $_.status -eq 'Application ready' -and $_.qa.syntax -eq 'Passed' })) {
     $taskId = [string]$taskProject.id
     if ($taskId -notmatch '^[a-f0-9-]{36}$') { continue }
@@ -23,7 +25,7 @@ foreach ($taskProject in @($taskState.projects | Where-Object { $_.buildMode -eq
     $taskServer = Join-Path $taskFolder 'server.mjs'
     if (-not (Test-Path -LiteralPath $taskServer) -or -not (Test-Path -LiteralPath (Join-Path $taskFolder 'app.json'))) { continue }
     $taskPrior = $taskExisting[$taskId]
-    $taskPort = if ($taskPrior -and [int]$taskPrior.port -ge 4320 -and [int]$taskPrior.port -le 4399) { [int]$taskPrior.port } else { 0 }
+    $taskPort = if ($taskPrior -and [int]$taskPrior.port -ge 4320 -and [int]$taskPrior.port -le 4499) { [int]$taskPrior.port } else { 0 }
     $taskRunning = $false
     if ($taskPrior -and $taskPort) {
         $taskProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$taskPrior.pid)" -ErrorAction SilentlyContinue
@@ -32,8 +34,8 @@ foreach ($taskProject in @($taskState.projects | Where-Object { $_.buildMode -eq
     }
     if ($taskRunning) { $taskProjectPid = [int]$taskPrior.pid }
     else {
-        if (-not $taskPort -or $taskReserved.ContainsKey($taskPort) -or (Get-NetTCPConnection -LocalPort $taskPort -State Listen -ErrorAction SilentlyContinue)) {
-            $taskPort = @(4320..4399 | Where-Object { -not $taskReserved.ContainsKey($_) -and -not (Get-NetTCPConnection -LocalPort $_ -State Listen -ErrorAction SilentlyContinue) } | Select-Object -First 1)[0]
+        if (-not $taskPort -or $taskReserved.ContainsKey($taskPort) -or $taskListening.ContainsKey($taskPort)) {
+            $taskPort = @(4320..4499 | Where-Object { -not $taskReserved.ContainsKey($_) -and -not $taskListening.ContainsKey($_) } | Select-Object -First 1)[0]
         }
         if (-not $taskPort) { Write-Output "No free local port for $($taskProject.title)."; continue }
         $taskOldPort = $env:PORT; $taskOldHost = $env:HOST
@@ -44,6 +46,7 @@ foreach ($taskProject in @($taskState.projects | Where-Object { $_.buildMode -eq
         } finally { $env:PORT = $taskOldPort; $env:HOST = $taskOldHost }
     }
     $taskReserved[$taskPort] = $true
+    $taskListening[$taskPort] = $true
     $taskRecords += [pscustomobject]@{ id = $taskId; title = [string]$taskProject.title; port = $taskPort; pid = $taskProjectPid; url = "http://127.0.0.1:$taskPort/" }
     Write-Output "$($taskProject.title): http://127.0.0.1:$taskPort/"
 }
