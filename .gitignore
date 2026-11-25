@@ -15,3 +15,10 @@ android/app/build/
 /refresh-application.mjs
 /review-application.mjs
 /upgrade-*.mjs
+# Local editor and assistant tooling
+.claude/
+.codex/
+.cursor/
+.aider*
+CLAUDE.md
+AGENTS.md
