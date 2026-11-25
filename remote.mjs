@@ -9,6 +9,8 @@ const root=path.dirname(fileURLToPath(import.meta.url));
 const attempts=new Map(),queue=[],authQueue=[],authWaiters=new Map();let snapshot=null,lastSeen=0;
 const commandResults=new Map();
 const activeSessions=new Map();
+// Drop expired sessions and stale sign-in counters so memory stays bounded on long-running hosts.
+setInterval(()=>{const now=Date.now();for(const [id,s] of activeSessions)if((typeof s==="number"?s:s?.expires)<=now)activeSessions.delete(id);for(const [ip,a] of attempts)if(now-a.at>600000)attempts.delete(ip);},600000).unref();
 const secret=process.env.FORGERADAR_BRIDGE_TOKEN,password=process.env.FORGERADAR_ADMIN_PASSWORD;
 if(!secret||secret.length<32||!password||password.length<16)throw new Error('Configure the bridge token and admin password before starting the public service.');
 const equal=(a,b)=>{const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&timingSafeEqual(x,y);};
