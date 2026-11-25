@@ -9,8 +9,7 @@ import path from 'node:path';
 import {previewResume} from './resume-parser.mjs';
 
 const execute=promisify(execFile);
-const bundled=path.join(os.homedir(),'.cache','codex-runtimes','codex-primary-runtime','dependencies','python','python.exe');
-const python=process.env.FORGERADAR_PYTHON||(existsSync(bundled)?bundled:'python');
+const python=process.env.FORGERADAR_PYTHON||'python';
 
 test('local DOCX parsing offers evidence for review and removes the uploaded file',async()=>{
   const directory=await mkdtemp(path.join(os.tmpdir(),'forge-resume-test-'));

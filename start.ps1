@@ -13,8 +13,8 @@ function Test-LocalListener([int]$Port) {
     catch { return $false }
 }
 $taskNodeCommand = Get-Command node -ErrorAction SilentlyContinue
-$taskNodeExe = if ($taskNodeCommand) { $taskNodeCommand.Source } else { Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe' }
-if (-not (Test-Path -LiteralPath $taskNodeExe)) { throw 'Node.js was not found. Install Node.js or repair the bundled ForgeRadar runtime.' }
+$taskNodeExe = if ($taskNodeCommand) { $taskNodeCommand.Source } else { $env:FORGERADAR_NODE }
+if (-not $taskNodeExe -or -not (Test-Path -LiteralPath $taskNodeExe)) { throw 'Node.js was not found. Install Node.js or set FORGERADAR_NODE to node.exe.' }
 $taskPrivateAccessFile = Join-Path $taskLogDir 'private-access.json'
 if (Test-Path -LiteralPath $taskPrivateAccessFile) {
     $taskPrivateAccess = Get-Content -LiteralPath $taskPrivateAccessFile -Raw | ConvertFrom-Json
@@ -24,8 +24,6 @@ if (Test-Path -LiteralPath $taskPrivateAccessFile) {
 }
 $taskLocalTokenFile = Join-Path $taskLogDir 'local-service-token.json'
 $taskHeaders = @{}
-$taskBundledPython = Join-Path $env:USERPROFILE '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'
-if (-not $env:FORGERADAR_PYTHON -and (Test-Path -LiteralPath $taskBundledPython)) { $env:FORGERADAR_PYTHON = $taskBundledPython }
 if (Test-Path -LiteralPath $taskLocalTokenFile) {
     $taskLocalToken = (Get-Content -LiteralPath $taskLocalTokenFile -Raw | ConvertFrom-Json).token
     $taskHeaders.Authorization = 'Bearer ' + $taskLocalToken

@@ -99,7 +99,7 @@ New project repositories use a readable title with an initial capital letter and
 
 Enable automation in System to collect every six hours while the local engine is running. Daily synchronization at **21:00 Asia/Kolkata** pushes completed approved work. This deployment keeps automatic code iterations off; request changes through the prompt bar. New ideas always await approval. A failed daily attempt is not repeatedly retried every 30 seconds.
 
-`node daily.mjs` is the scheduled daily entry point. It starts the local services when needed and respects the dashboard pause setting. A Codex heartbeat can invoke it when this computer and Codex are available; it cannot execute while the computer is off. Source publication is separately available through platform-sync.mjs.
+`node daily.mjs` is the scheduled daily entry point. It starts the local services when needed and respects the dashboard pause setting. Windows Task Scheduler can run it while this computer is on; it cannot execute while the computer is off. Source publication is separately available through platform-sync.mjs.
 
 ## Validation and limits
 
@@ -149,4 +149,4 @@ Example prompts:
 - Sync completed approved projects to GitHub.
 - Pause automation.
 
-The assistant uses the local model to select from bounded actions. It does not have Codex's unrestricted terminal, package installation, arbitrary repository editing or cloud GPU capabilities.
+The assistant uses the local model to select from bounded actions. It does not have an unrestricted terminal, package installation, arbitrary repository editing or cloud GPU capabilities.
