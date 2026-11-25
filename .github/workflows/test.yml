@@ -1,4 +1,4 @@
-name: test
+﻿name: test
 on:
   push:
     branches: [main]
@@ -15,5 +15,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pypdf python-docx reportlab
       - run: node --check remote.mjs && node --check server.mjs
       - run: npm test
